@@ -1,19 +1,16 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v4.5", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v4.6", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
     [data-testid="stMetricValue"] { font-weight: 850 !important; font-size: 2.2rem !important; }
-    
-    /* ESTILO DE MÉTRICAS */
     div[data-testid="stMetric"]:nth-of-type(1) [data-testid="stMetricValue"] { color: #ffffff !important; }
     div[data-testid="column"]:nth-of-type(2) [data-testid="stMetricValue"] { color: #00ff41 !important; }
     div[data-testid="column"]:nth-of-type(3) [data-testid="stMetricValue"] { color: #ff3131 !important; }
-    
     .stMetric { background-color: #111827; padding: 20px; border-radius: 15px; border: 1px solid #374151; }
     .apuesta-box { background-color: #ffeb3b; color: #000000; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 1.4rem; margin: 10px 0px; }
     .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; }
@@ -25,11 +22,9 @@ st.markdown("""
 # 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0
-if 'total_ganado' not in st.session_state: st.session_state.total_ganado = 0
-if 'total_perdido' not in st.session_state: st.session_state.total_perdido = 0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 
-# --- LÓGICA DE CONTABILIDAD POR RONDA ---
+# --- LÓGICA DE COMPENSACIÓN (TU EJEMPLO) ---
 def registrar_vuelo():
     valor = st.session_state.entrada_vuelo
     if valor:
@@ -39,22 +34,17 @@ def registrar_vuelo():
             
             if st.session_state.check_apuesta:
                 apuesta = st.session_state.apuesta_sugerida
-                # Definir target según estrategia seleccionada
                 if st.session_state.modo_juego == "Cazador de Rosas (10x)": target = 10.0
                 elif st.session_state.modo_juego == "Estrategia 2x2": target = 2.0
                 else: target = 1.50
                 
-                # 1. Restar apuesta del saldo (Flujo Casino)
+                # Proceso Casino: Resta apuesta siempre
                 st.session_state.saldo_dinamico -= apuesta
                 
                 if vuelo_val >= target:
-                    # VICTORIA: Sumar premio bruto al saldo y beneficio neto a ganancias
+                    # GANA: Suma premio bruto
                     premio_bruto = apuesta * target
                     st.session_state.saldo_dinamico += premio_bruto
-                    st.session_state.total_ganado += (premio_bruto - apuesta)
-                else:
-                    # DERROTA: Sumar apuesta a la métrica de perdidas
-                    st.session_state.total_perdido += apuesta
                     
         except: pass
         st.session_state.entrada_vuelo = ""
@@ -73,15 +63,22 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- CÁLCULO DE APUESTA ---
-div_ap = 25 if st.session_state.modo_juego == "Cazador de Rosas (10x)" else 8 if st.session_state.modo_juego == "Estrategia 2x2" else 5
-st.session_state.apuesta_sugerida = max(2000, int(((saldo_in * (obj_pct/100)) / div_ap) // 1000) * 1000)
+# --- CÁLCULO DE MÉTRICAS DINÁMICAS ---
+# Aquí es donde ocurre la magia de tu ejemplo
+diferencia = st.session_state.saldo_dinamico - saldo_in
+
+if diferencia >= 0:
+    ganancias_display = diferencia
+    perdidas_display = 0
+else:
+    ganancias_display = 0
+    perdidas_display = abs(diferencia)
 
 # --- PANEL DE MÉTRICAS ---
 c1, c2, c3 = st.columns(3)
 c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
-c2.metric("Ganancias", f"{int(st.session_state.total_ganado):,} Gs")
-c3.metric("Perdidas", f"{int(st.session_state.total_perdido):,} Gs")
+c2.metric("Ganancias", f"{int(ganancias_display):,} Gs")
+c3.metric("Perdidas", f"{int(perdidas_display):,} Gs")
 
 # SEMÁFORO (Hueco de Tiempo)
 def motor_semaforo(h, modo):
@@ -90,7 +87,6 @@ def motor_semaforo(h, modo):
     for v in reversed(h):
         if v >= 10: break
         v_desde_rosa += 1
-    
     if modo == "Cazador de Rosas (10x)":
         if v_desde_rosa >= 25: return f"🟢 VERDE: HUECO ({v_desde_rosa})", "#e91e63", "white"
         return f"🔴 ROJO: CICLO BAJO ({v_desde_rosa})", "#ff3131", "white"

@@ -1,156 +1,125 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v3.5", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v3.6", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS AVANZADO (COLORES DINÁMICOS) ---
+# --- ESTILOS CSS ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
     
-    /* Estilo General de Métricas */
-    [data-testid="stMetricValue"] {
-        font-weight: 800 !important;
-        font-size: 2.2rem !important;
-    }
-    
-    /* COLOR VERDE PARA GANANCIA (Solo el valor) */
-    [data-testid="stMetricValue"] > div:nth-child(1) { } /* Selector base */
-    
-    /* Aplicamos colores específicos por posición de columna */
-    div[data-testid="column"]:nth-of-type(2) [data-testid="stMetricValue"] {
-        color: #00ff41 !important; /* Verde Matrix/Neón */
-        text-shadow: 0px 0px 15px rgba(0,255,65,0.4);
-    }
-    
-    /* COLOR ROJO PARA RECUPERACIÓN (Solo el valor) */
-    div[data-testid="column"]:nth-of-type(3) [data-testid="stMetricValue"] {
-        color: #ff3131 !important; /* Rojo Brillante */
-        text-shadow: 0px 0px 15px rgba(255,49,49,0.4);
-    }
-    
-    /* COLOR BLANCO PARA SALDO */
-    div[data-testid="column"]:nth-of-type(1) [data-testid="stMetricValue"] {
-        color: #ffffff !important;
-        text-shadow: 0px 0px 15px rgba(255,255,255,0.3);
-    }
+    /* Colores dinámicos para las métricas */
+    div[data-testid="column"]:nth-of-type(1) [data-testid="stMetricValue"] { color: #ffffff !important; }
+    div[data-testid="column"]:nth-of-type(2) [data-testid="stMetricValue"] { color: #00ff41 !important; text-shadow: 0px 0px 15px rgba(0,255,65,0.4); }
+    div[data-testid="column"]:nth-of-type(3) [data-testid="stMetricValue"] { color: #ff3131 !important; text-shadow: 0px 0px 15px rgba(255,49,49,0.4); }
 
-    [data-testid="stMetricLabel"] {
-        color: #ced4da !important;
-        font-weight: bold !important;
-    }
-
-    .stMetric { 
-        background-color: #111827; 
-        padding: 20px; 
-        border-radius: 15px; 
-        border: 1px solid #374151;
-    }
+    .stMetric { background-color: #111827; padding: 20px; border-radius: 15px; border: 1px solid #374151; }
     
+    /* Caja de Apuesta Recomendada */
     .apuesta-box {
-        background-color: #ffeb3b;
-        color: #000000;
-        padding: 15px;
-        border-radius: 10px;
-        text-align: center;
-        font-weight: bold;
-        font-size: 1.2rem;
-        border: 2px solid #fbc02d;
-        margin: 10px 0px;
+        background-color: #ffeb3b; color: #000000; padding: 15px; border-radius: 10px;
+        text-align: center; font-weight: 900; font-size: 1.4rem; border: 3px solid #fbc02d; margin: 10px 0px;
+    }
+
+    /* Semáforo de Señal */
+    .semaforo {
+        padding: 20px; border-radius: 15px; text-align: center; font-weight: bold; font-size: 1.5rem; margin: 15px 0px;
     }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización de Estado
+# 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'ganancia_total' not in st.session_state: st.session_state.ganancia_total = 0
 if 'perdida_acumulada' not in st.session_state: st.session_state.perdida_acumulada = 0
 
+# --- NUEVO MOTOR DE ANÁLISIS (SEMÁFORO) ---
+def motor_semaforo(h, modo):
+    if len(h) < 3:
+        return "🟡 AMARILLO: ANALIZANDO", "#f1c40f", "white" # Amarillo
+    
+    ultimos = h[-3:]
+    vuelos_desde_rosa = 0
+    for v in reversed(h):
+        if v >= 10: break
+        vuelos_desde_rosa += 1
+
+    if modo == "Conservadora (1.50x)":
+        # Rojo si los últimos 2 son muy malos
+        if h[-1] < 1.2 and h[-2] < 1.2:
+            return "🔴 ROJO: NO APOSTAR", "#ff3131", "white"
+        # Verde si hay buena racha
+        if sum(ultimos)/3 >= 1.7:
+            return "🟢 VERDE: HACER APUESTA", "#00ff41", "black"
+        # Por defecto amarillo
+        return "🟡 AMARILLO: ESPERAR PATRÓN", "#f1c40f", "black"
+    
+    else: # Modo Cazador de Rosas (10x)
+        if vuelos_desde_rosa >= 18:
+            return "🟢 VERDE: PROBABILIDAD ROSA ALTA", "#e91e63", "white"
+        if vuelos_desde_rosa >= 12:
+            return "🟡 AMARILLO: CICLO CERCA", "#f1c40f", "black"
+        return "🔴 ROJO: NO APOSTAR (Ciclo Joven)", "#ff3131", "white"
+
 # --- FUNCIÓN DE REGISTRO ---
 def registrar_vuelo():
-    valor_texto = st.session_state.entrada_vuelo
-    if valor_texto:
+    valor = st.session_state.entrada_vuelo
+    if valor:
         try:
-            vuelo_val = float(valor_texto.replace(',', '.'))
+            vuelo_val = float(valor.replace(',', '.'))
             st.session_state.historial.append(vuelo_val)
+            if len(st.session_state.historial) > 50: st.session_state.historial.pop(0)
             
             if st.session_state.check_apuesta:
                 target = 1.50 if st.session_state.modo_juego == "Conservadora (1.50x)" else 10.0
-                # Usamos la apuesta sugerida calculada
-                apuesta_base = st.session_state.apuesta_sugerida
-                
+                apuesta = st.session_state.apuesta_sugerida
                 if vuelo_val >= target:
-                    st.session_state.ganancia_total += (apuesta_base * (target - 1))
+                    st.session_state.ganancia_total += (apuesta * (target - 1))
                     st.session_state.perdida_acumulada = 0
                 else:
-                    st.session_state.perdida_acumulada += apuesta_base
-        except:
-            pass
+                    st.session_state.perdida_acumulada += apuesta
+        except: pass
         st.session_state.entrada_vuelo = ""
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("🇵🇾 Configuración")
-    saldo_in = st.number_input("Saldo Inicial Gs.", min_value=0, value=100000, step=5000, key="saldo_inicial")
-    
-    # NUEVO: Selector de Porcentaje de Objetivo
+    st.header("🇵🇾 Ajustes")
+    saldo_in = st.number_input("Saldo Inicial Gs.", value=100000, step=5000, key="saldo_inicial")
     objetivo_pct = st.slider("Objetivo de Ganancia (%)", 10, 100, 20)
-    st.caption(f"Buscando ganar: {int(saldo_in * (objetivo_pct/100)):,} Gs")
-    
     st.selectbox("Estrategia:", ["Conservadora (1.50x)", "Cazador de Rosas (10x)"], key="modo_juego")
-    
     if st.button("🔄 Reiniciar App"):
-        st.session_state.historial = []
-        st.session_state.ganancia_total = 0
-        st.session_state.perdida_acumulada = 0
+        st.session_state.historial, st.session_state.ganancia_total, st.session_state.perdida_acumulada = [], 0, 0
         st.rerun()
 
-# --- CÁLCULO DE APUESTA SUGERIDA ---
-# Si es conservador, arriesga un poco más del saldo. Si es rosa, arriesga muy poco.
-if st.session_state.modo_juego == "Conservadora (1.50x)":
-    # Fórmula: (Saldo * % objetivo) / 10 rondas para seguridad
-    sugerida = (saldo_in * (objetivo_pct/100)) / 5
-else:
-    # Para rosas 10x, la apuesta debe ser pequeña porque se falla mucho
-    sugerida = (saldo_in * (objetivo_pct/100)) / 20
-
-# Ajustar a múltiplos de 1.000 para Paraguay y mínimo de 2.000
+# --- CÁLCULOS ---
+sugerida = (saldo_in * (objetivo_pct/100)) / (5 if st.session_state.modo_juego == "Conservadora (1.50x)" else 25)
 st.session_state.apuesta_sugerida = max(2000, int(sugerida // 1000) * 1000)
-
-# --- INTERFAZ PRINCIPAL ---
 saldo_actual = st.session_state.saldo_inicial + st.session_state.ganancia_total - st.session_state.perdida_acumulada
 
+# --- INTERFAZ ---
 c1, c2, c3 = st.columns(3)
 c1.metric("SALDO ACTUAL", f"{int(saldo_actual):,} Gs")
 c2.metric("GANANCIA NETA", f"{int(st.session_state.ganancia_total):,} Gs")
 c3.metric("RECUPERACIÓN", f"{int(st.session_state.perdida_acumulada):,} Gs")
 
-# --- BLOQUE DE APUESTA SUGERIDA ---
-st.markdown(f"""
-    <div class="apuesta-box">
-        📢 APUESTA RECOMENDADA: {st.session_state.apuesta_sugerida:,} Gs
-    </div>
-""", unsafe_allow_html=True)
+# SEMÁFORO VISUAL
+msg, color_bg, color_txt = motor_semaforo(st.session_state.historial, st.session_state.modo_juego)
+st.markdown(f'<div class="semaforo" style="background-color:{color_bg}; color:{color_txt};">{msg}</div>', unsafe_allow_html=True)
+
+st.markdown(f'<div class="apuesta-box">📢 APUESTA RECOMENDADA: {st.session_state.apuesta_sugerida:,} Gs</div>', unsafe_allow_html=True)
 
 st.markdown("---")
-
-# --- REGISTRO ---
 col_in, col_ap = st.columns([2, 1])
-with col_in:
-    st.text_input("Resultado del avión y ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
-with col_ap:
+with col_in: st.text_input("Resultado del avión y ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
+with col_ap: 
     st.write("##")
-    st.checkbox("¿Aposté esta sugerencia?", key="check_apuesta")
+    st.checkbox("¿Aposté?", key="check_apuesta")
 
-# --- HISTORIAL ---
+# BURBUJAS
 if st.session_state.historial:
-    st.subheader("📊 Últimos Resultados")
     ultimos = list(reversed(st.session_state.historial))[:15]
     cols = st.columns(15)
     for i, val in enumerate(ultimos):
         if i < len(cols):
-            color = "#3498db" if val < 2.0 else "#9b59b6" if val < 10.0 else "#e91e63"
-            with cols[i]:
-                st.markdown(f"""<div style="background-color:{color}; color:white; border-radius:50%; width:45px; height:45px; 
-                display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px;
-                border:2px solid rgba(255,255,255,0.2);">{val:.2f}</div>""", unsafe_allow_html=True)
+            bg = "#3498db" if val < 2.0 else "#9b59b6" if val < 10.0 else "#e91e63"
+            with cols[i]: st.markdown(f'<div style="background-color:{bg}; color:white; border-radius:50%; width:40px; height:40px; display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:10px;">{val:.2f}</div>', unsafe_allow_html=True)

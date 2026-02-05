@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v4.4", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v4.5", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -9,13 +9,9 @@ st.markdown("""
     .main { background-color: #0e1117; color: #ffffff; }
     [data-testid="stMetricValue"] { font-weight: 850 !important; font-size: 2.2rem !important; }
     
-    /* SALDO ACTUAL - BLANCO */
+    /* ESTILO DE MÉTRICAS */
     div[data-testid="stMetric"]:nth-of-type(1) [data-testid="stMetricValue"] { color: #ffffff !important; }
-    
-    /* GANANCIAS - VERDE */
     div[data-testid="column"]:nth-of-type(2) [data-testid="stMetricValue"] { color: #00ff41 !important; }
-    
-    /* PÉRDIDAS - ROJO */
     div[data-testid="column"]:nth-of-type(3) [data-testid="stMetricValue"] { color: #ff3131 !important; }
     
     .stMetric { background-color: #111827; padding: 20px; border-radius: 15px; border: 1px solid #374151; }
@@ -33,7 +29,7 @@ if 'total_ganado' not in st.session_state: st.session_state.total_ganado = 0
 if 'total_perdido' not in st.session_state: st.session_state.total_perdido = 0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 
-# --- REGISTRO DE VUELO ---
+# --- LÓGICA DE CONTABILIDAD POR RONDA ---
 def registrar_vuelo():
     valor = st.session_state.entrada_vuelo
     if valor:
@@ -43,17 +39,23 @@ def registrar_vuelo():
             
             if st.session_state.check_apuesta:
                 apuesta = st.session_state.apuesta_sugerida
-                target = 10.0 if st.session_state.modo_juego == "Cazador de Rosas (10x)" else 2.0 if st.session_state.modo_juego == "Estrategia 2x2" else 1.50
+                # Definir target según estrategia seleccionada
+                if st.session_state.modo_juego == "Cazador de Rosas (10x)": target = 10.0
+                elif st.session_state.modo_juego == "Estrategia 2x2": target = 2.0
+                else: target = 1.50
                 
-                # Proceso Casino
+                # 1. Restar apuesta del saldo (Flujo Casino)
                 st.session_state.saldo_dinamico -= apuesta
                 
                 if vuelo_val >= target:
-                    premio = apuesta * target
-                    st.session_state.saldo_dinamico += premio
-                    st.session_state.total_ganado += (premio - apuesta)
+                    # VICTORIA: Sumar premio bruto al saldo y beneficio neto a ganancias
+                    premio_bruto = apuesta * target
+                    st.session_state.saldo_dinamico += premio_bruto
+                    st.session_state.total_ganado += (premio_bruto - apuesta)
                 else:
+                    # DERROTA: Sumar apuesta a la métrica de perdidas
                     st.session_state.total_perdido += apuesta
+                    
         except: pass
         st.session_state.entrada_vuelo = ""
 
@@ -71,11 +73,11 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- CÁLCULOS ---
+# --- CÁLCULO DE APUESTA ---
 div_ap = 25 if st.session_state.modo_juego == "Cazador de Rosas (10x)" else 8 if st.session_state.modo_juego == "Estrategia 2x2" else 5
 st.session_state.apuesta_sugerida = max(2000, int(((saldo_in * (obj_pct/100)) / div_ap) // 1000) * 1000)
 
-# --- INTERFAZ DE MÉTRICAS ---
+# --- PANEL DE MÉTRICAS ---
 c1, c2, c3 = st.columns(3)
 c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
 c2.metric("Ganancias", f"{int(st.session_state.total_ganado):,} Gs")

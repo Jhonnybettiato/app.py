@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v4.6", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v4.7", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -19,12 +19,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización
+# 2. Inicialización de Estado
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 
-# --- LÓGICA DE COMPENSACIÓN (TU EJEMPLO) ---
+# --- FUNCIONES ---
 def registrar_vuelo():
     valor = st.session_state.entrada_vuelo
     if valor:
@@ -33,52 +33,54 @@ def registrar_vuelo():
             st.session_state.historial.append(vuelo_val)
             
             if st.session_state.check_apuesta:
-                apuesta = st.session_state.apuesta_sugerida
+                # Usamos el valor calculado de la apuesta
+                ap = st.session_state.apuesta_calculada
+                
+                # Definir target
                 if st.session_state.modo_juego == "Cazador de Rosas (10x)": target = 10.0
                 elif st.session_state.modo_juego == "Estrategia 2x2": target = 2.0
                 else: target = 1.50
                 
-                # Proceso Casino: Resta apuesta siempre
-                st.session_state.saldo_dinamico -= apuesta
+                # Restar del saldo
+                st.session_state.saldo_dinamico -= ap
                 
+                # Si gana, sumar premio bruto
                 if vuelo_val >= target:
-                    # GANA: Suma premio bruto
-                    premio_bruto = apuesta * target
-                    st.session_state.saldo_dinamico += premio_bruto
-                    
+                    st.session_state.saldo_dinamico += (ap * target)
         except: pass
         st.session_state.entrada_vuelo = ""
 
-# --- SIDEBAR ---
+# --- SIDEBAR (CONFIGURACIÓN) ---
 with st.sidebar:
     st.header("🇵🇾 Configuración")
     saldo_in = st.number_input("Saldo Inicial Gs.", value=50000, step=5000)
+    
+    # Seteo inicial del saldo dinámico
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = saldo_in
         st.session_state.primer_inicio = False
     
     obj_pct = st.slider("Meta %", 10, 100, 20)
     st.selectbox("Estrategia:", ["Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], key="modo_juego")
+    
+    # CÁLCULO PREVIO DE APUESTA (Para evitar el error de la captura)
+    div_ap = 25 if st.session_state.modo_juego == "Cazador de Rosas (10x)" else 8 if st.session_state.modo_juego == "Estrategia 2x2" else 5
+    st.session_state.apuesta_calculada = max(2000, int(((saldo_in * (obj_pct/100)) / div_ap) // 1000) * 1000)
+
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear()
         st.rerun()
 
-# --- CÁLCULO DE MÉTRICAS DINÁMICAS ---
-# Aquí es donde ocurre la magia de tu ejemplo
+# --- LÓGICA DE COMPENSACIÓN ---
 diferencia = st.session_state.saldo_dinamico - saldo_in
-
-if diferencia >= 0:
-    ganancias_display = diferencia
-    perdidas_display = 0
-else:
-    ganancias_display = 0
-    perdidas_display = abs(diferencia)
+ganancias = max(0, diferencia)
+perdidas = abs(min(0, diferencia))
 
 # --- PANEL DE MÉTRICAS ---
 c1, c2, c3 = st.columns(3)
 c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
-c2.metric("Ganancias", f"{int(ganancias_display):,} Gs")
-c3.metric("Perdidas", f"{int(perdidas_display):,} Gs")
+c2.metric("Ganancias", f"{int(ganancias):,} Gs")
+c3.metric("Perdidas", f"{int(perdidas):,} Gs")
 
 # SEMÁFORO (Hueco de Tiempo)
 def motor_semaforo(h, modo):
@@ -94,7 +96,7 @@ def motor_semaforo(h, modo):
 
 msg, bg, txt = motor_semaforo(st.session_state.historial, st.session_state.modo_juego)
 st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="apuesta-box">📢 APUESTA SUGERIDA: {st.session_state.apuesta_sugerida:,} Gs</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="apuesta-box">📢 APUESTA SUGERIDA: {st.session_state.apuesta_calculada:,} Gs</div>', unsafe_allow_html=True)
 
 st.markdown("---")
 col_in, col_ap = st.columns([2, 1])

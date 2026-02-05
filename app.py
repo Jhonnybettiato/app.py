@@ -1,122 +1,123 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuración de página con moneda PYG
-st.set_page_config(page_title="Aviator PY Pro", page_icon="🦅", layout="wide")
+# 1. Configuración de página
+st.set_page_config(page_title="Aviator Elite PY", page_icon="🦅", layout="wide")
 
+# Estilo CSS (Dark Mode + Animaciones)
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
-    .stButton>button { width: 100%; background-color: #e91e63; color: white; border-radius: 10px; font-weight: bold; height: 3.5em; }
+    .stButton>button { width: 100%; background-color: #e91e63; color: white; border-radius: 10px; font-weight: bold; }
     .stMetric { background-color: #1f2937; padding: 15px; border-radius: 10px; border: 1px solid #374151; }
-    .bet-signal { 
-        background-color: #22c55e; 
+    .rosa-signal { 
+        background-color: #a21caf; 
         padding: 20px; 
         border-radius: 10px; 
         text-align: center; 
-        font-weight: bold;
-        border: 2px solid #ffffff;
-        animation: pulse 1.5s infinite;
+        border: 2px solid #f0abfc;
+        animation: pulse 1s infinite;
     }
-    @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
+    @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.02); } 100% { transform: scale(1); } }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización de datos
-if 'historial' not in st.session_state:
-    st.session_state.historial = []
-if 'perdida_acumulada' not in st.session_state:
-    st.session_state.perdida_acumulada = 0
-if 'ganancia_total' not in st.session_state:
-    st.session_state.ganancia_total = 0
+# 2. Inicialización
+if 'historial' not in st.session_state: st.session_state.historial = []
+if 'perdida_acumulada' not in st.session_state: st.session_state.perdida_acumulada = 0
+if 'ganancia_total' not in st.session_state: st.session_state.ganancia_total = 0
 
-# 3. Barra Lateral Configurada para Paraguay
+# --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("🇵🇾 Ajustes de Banca")
-    # Saldo en Gs (Ejemplo: 10.000)
-    saldo_inicial = st.number_input("Saldo en Guaraníes", min_value=0, value=10000, step=1000)
+    st.header("🇵🇾 Panel de Control")
+    
+    # SECCIÓN 1: AJUSTE DE BANCA
+    with st.expander("💰 Ajuste de Banca", expanded=True):
+        saldo_inicial = st.number_input("Saldo en Gs.", min_value=0, value=10000, step=1000)
+    
+    # SECCIÓN 2: ESTRATEGIA (Lo nuevo)
     st.markdown("---")
-    if st.button("🔄 Reiniciar Sesión"):
+    st.header("🎯 Estrategia")
+    modo_juego = st.selectbox(
+        "Selecciona tu estilo:",
+        ["Conservadora (1.50x)", "Cazador de Rosas (10x)"]
+    )
+    
+    st.markdown("---")
+    if st.button("🔄 Reiniciar Datos"):
         st.session_state.historial = []
         st.session_state.perdida_acumulada = 0
         st.session_state.ganancia_total = 0
         st.rerun()
 
-# 4. Lógica de Análisis Estratégico
-def analizar_py(h):
-    if len(h) < 3: return "Recolectando datos...", 0, 0, "info"
-    ult = h[-3:]
-    promedio = sum(ult)/3
-    confianza = min(int((promedio / 2.2) * 100), 98)
+# --- LÓGICA DE ESTRATEGIAS ---
+def motor_analisis(h, modo):
+    if len(h) < 3: return "Recolectando datos...", 0, "info"
     
-    if all(x < 1.35 for x in ult): return "🛑 RIESGO EXTREMO: Racha muy baja", 0, 0, "error"
-    if ult[-1] > 10.0: return "📉 ENFRIAMIENTO: Salió un Rosa alto", 0, 0, "warning"
-    if promedio > 1.85: return "🔥 ¡APUESTA AHORA!", 1.50, confianza, "success"
-    
-    return "⚖️ Esperando Oportunidad...", 1.25, 0, "info"
+    ultimos = h[-3:]
+    vuelos_desde_rosa = 0
+    # Contar cuántos vuelos pasaron desde el último 10x
+    for i, v in enumerate(reversed(h)):
+        if v >= 10: break
+        vuelos_desde_rosa += 1
 
-# 5. Cabecera con Métricas en Gs
-st.title("🦅 Aviator Estratega PY v2.6")
+    if modo == "Conservadora (1.50x)":
+        promedio = sum(ultimos)/3
+        if all(x < 1.30 for x in ultimos): return "🛑 Riesgo: Racha Baja", 0, "error"
+        if promedio > 1.8: return "🔥 SEÑAL: Entrar a 1.50x", 1.50, "success"
+        return "⚖️ Esperando estabilidad...", 0, "info"
+    
+    else: # MODO CAZADOR 10x
+        # Si han pasado más de 15 vuelos sin un 10x y hay estabilidad
+        if vuelos_desde_rosa > 15 and sum(ultimos)/3 > 1.5:
+            return f"🌸 ALERTA ROSA: {vuelos_desde_rosa} vuelos sin 10x. ¡Momento de buscarlo!", 10.0, "rosa"
+        return f"⌛ Analizando ciclo: {vuelos_desde_rosa} vuelos desde el último rosa.", 0, "info"
+
+# --- INTERFAZ PRINCIPAL ---
+st.title(f"🦅 Aviator Pro - Modo {modo_juego}")
 saldo_actual = saldo_inicial + st.session_state.ganancia_total - st.session_state.perdida_acumulada
 
 c1, c2, c3 = st.columns(3)
-c1.metric("Saldo Real Gs.", f"{saldo_actual:,}")
-c2.metric("Meta de Sesión Gs.", f"{int(saldo_inicial * 1.2):,}")
-c3.metric("Ganancia Neta Gs.", f"{int(st.session_state.ganancia_total):,}", 
-          delta=f"{int(st.session_state.ganancia_total - st.session_state.perdida_acumulada):,}")
+c1.metric("Saldo Actual", f"{saldo_actual:,} Gs")
+c2.metric("Ganancia Hoy", f"{int(st.session_state.ganancia_total):,} Gs")
+c3.metric("Pérdida/Deuda", f"{int(st.session_state.perdida_acumulada):,} Gs")
 
 st.markdown("---")
 
-# 6. Registro con Selección de Apuesta
-with st.container():
-    st.subheader("📥 Registro de Vuelo")
-    col_v, col_a = st.columns([1, 1])
-    
-    with col_v:
-        vuelo_in = st.number_input("Multiplicador del avión:", min_value=1.0, step=0.01, format="%.2f")
-    
-    with col_a:
-        # Pregunta clave antes de registrar
-        apostaste = st.radio("¿Pusiste dinero en este vuelo?", ["No, solo miraba", "SÍ, aposté"], horizontal=True)
+# Registro
+col_v, col_a = st.columns(2)
+with col_v:
+    vuelo_in = st.number_input("Resultado del avión:", min_value=1.0, step=0.01)
+with col_a:
+    st.write("##")
+    apostaste = st.checkbox("¿Aposté en esta ronda?")
 
-    if st.button("🚀 REGISTRAR Y ANALIZAR"):
-        # Determinar monto de apuesta basado en la última sugerencia
-        apuesta_sug = max(2000, int(saldo_inicial * 0.05)) # Mínimo 2000 Gs o 5%
-        if st.session_state.perdida_acumulada > 0:
-            apuesta_sug = int(st.session_state.perdida_acumulada * 2)
-
-        st.session_state.historial.append(vuelo_in)
+if st.button("Registrar Vuelo"):
+    st.session_state.historial.append(vuelo_in)
+    if apostaste:
+        # Lógica de cobro según el modo seleccionado
+        target = 1.50 if modo_juego == "Conservadora (1.50x)" else 10.0
+        apuesta_base = max(2000, int(saldo_inicial * 0.05))
         
-        if apostaste == "SÍ, aposté":
-            if vuelo_in >= 1.50: # Si alcanzó el target mínimo de la estrategia
-                st.session_state.ganancia_total += (apuesta_sug * 0.5)
-                st.session_state.perdida_acumulada = 0
-            else:
-                st.session_state.perdida_acumulada += apuesta_sug
-        st.rerun()
+        if vuelo_in >= target:
+            st.session_state.ganancia_total += (apuesta_base * (target - 1))
+            st.session_state.perdida_acumulada = 0
+            st.balloons()
+        else:
+            st.session_state.perdida_acumulada += apuesta_base
+    st.rerun()
 
-# 7. Cuadro de Señal Visual
-msg, target, conf, tipo = analizar_py(st.session_state.historial)
+# Señal Visual
+msg, target, tipo = motor_analisis(st.session_state.historial, modo_juego)
 
 if tipo == "success":
-    st.markdown(f"""
-        <div class="bet-signal">
-            <h1 style='margin:0;'>{msg}</h1>
-            <p style='font-size: 22px; margin:0;'>Confianza: {conf}% | Salida sugerida: {target}x</p>
-        </div>
-    """, unsafe_allow_html=True)
-    
-    # Cálculo de monto para Paraguay
-    monto = max(2000, int(saldo_inicial * 0.05))
-    if st.session_state.perdida_acumulada > 0:
-        monto = int(st.session_state.perdida_acumulada * 2)
-        
-    st.info(f"💰 **APUESTA RECOMENDADA:** {monto:,} Gs.")
+    st.success(f"### {msg}")
+elif tipo == "rosa":
+    st.markdown(f'<div class="rosa-signal"><h2>{msg}</h2><p>Busca el 10x con apuesta pequeña</p></div>', unsafe_allow_html=True)
+elif tipo == "error":
+    st.error(f"### {msg}")
 else:
-    if tipo == "error": st.error(f"### {msg}")
-    elif tipo == "warning": st.warning(f"### {msg}")
-    else: st.info(f"### {msg}")
+    st.info(f"### {msg}")
 
-# 8. Gráfico de Historial
 if st.session_state.historial:
-    st.line_chart(st.session_state.historial[-15:])
+    st.line_chart(st.session_state.historial[-20:])

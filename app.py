@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v4.9", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v5.0", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -19,7 +19,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización de Estado
+# 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
@@ -36,7 +36,6 @@ with st.sidebar:
     obj_pct = st.slider("Meta %", 10, 100, 20)
     modo = st.selectbox("Estrategia:", ["Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], key="modo_juego")
     
-    # Cálculo automático (Base)
     div_ap = 25 if modo == "Cazador de Rosas (10x)" else 8 if modo == "Estrategia 2x2" else 5
     apuesta_auto = max(2000, int(((saldo_in * (obj_pct/100)) / div_ap) // 1000) * 1000)
 
@@ -44,7 +43,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- FUNCIÓN DE REGISTRO CON APUESTA PERSONALIZADA ---
+# --- FUNCIÓN DE REGISTRO CON LÓGICA DE MARGEN ---
 def registrar_vuelo():
     if st.session_state.entrada_vuelo:
         try:
@@ -52,26 +51,29 @@ def registrar_vuelo():
             st.session_state.historial.append(vuelo_val)
             
             if st.session_state.check_apuesta:
-                # Usa el valor manual ingresado por el usuario
                 ap_real = float(st.session_state.valor_apuesta_manual)
                 
-                target = 10.0 if st.session_state.modo_juego == "Cazador de Rosas (10x)" else 2.0 if st.session_state.modo_juego == "Estrategia 2x2" else 1.50
+                # Ajuste de targets para la comparación
+                if st.session_state.modo_juego == "Cazador de Rosas (10x)": target = 10.0
+                elif st.session_state.modo_juego == "Estrategia 2x2": target = 2.0
+                else: target = 1.50
                 
-                # Restar apuesta real
+                # RESTA SIEMPRE
                 st.session_state.saldo_dinamico -= ap_real
                 
-                if vuelo_val >= target:
-                    # Sumar premio bruto basado en la apuesta real
+                # LÓGICA ESTRICTA: Debe ser > que el target para ganar
+                if vuelo_val > target:
                     st.session_state.saldo_dinamico += (ap_real * target)
+                # Si es igual o menor (vuelo_val <= target), se queda como pérdida
         except: pass
         st.session_state.entrada_vuelo = ""
 
-# --- LÓGICA DE COMPENSACIÓN ---
+# --- COMPENSACIÓN ---
 diferencia = st.session_state.saldo_dinamico - saldo_in
 ganancias_display = max(0, diferencia)
 perdidas_display = abs(min(0, diferencia))
 
-# --- PANEL DE MÉTRICAS ---
+# --- MÉTRICAS ---
 c1, c2, c3 = st.columns(3)
 c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
 c2.metric("Ganancias", f"{int(ganancias_display):,} Gs")
@@ -94,20 +96,10 @@ st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">
 st.markdown(f'<div class="apuesta-box">📢 APUESTA SUGERIDA: {apuesta_auto:,} Gs</div>', unsafe_allow_html=True)
 
 st.markdown("---")
-
-# --- NUEVA FILA DE CONTROLES ---
 col_vuelo, col_monto, col_check = st.columns([2, 1, 1])
-
-with col_vuelo:
-    st.text_input("Resultado y ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
-
-with col_monto:
-    # Ventana para poner el valor que apostaste (por defecto trae la sugerida)
-    st.number_input("Gs. Apostados:", value=float(apuesta_auto), step=1000.0, key="valor_apuesta_manual")
-
-with col_check:
-    st.write("##") # Alineación
-    st.checkbox("¿Aposté?", key="check_apuesta")
+with col_vuelo: st.text_input("Resultado y ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
+with col_monto: st.number_input("Gs. Apostados:", value=float(apuesta_auto), step=1000.0, key="valor_apuesta_manual")
+with col_check: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 
 # HISTORIAL
 if st.session_state.historial:

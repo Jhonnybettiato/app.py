@@ -1,41 +1,34 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v3.3", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v3.4", page_icon="🦅", layout="wide")
 
-# --- MEJORA DE COLOR Y VISIBILIDAD (CSS) ---
+# --- MEJORA VISUAL TOTAL (CSS) ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
     
-    /* Estilo para que los números de las métricas resalten */
+    /* Números de métricas en Blanco Brillante */
     [data-testid="stMetricValue"] {
         color: #ffffff !important;
         font-weight: 800 !important;
-        font-size: 1.8rem !important;
-        text-shadow: 0px 0px 10px rgba(255,255,255,0.2);
+        font-size: 2rem !important;
+        text-shadow: 0px 0px 15px rgba(255,255,255,0.4);
     }
     
-    /* Estilo para las etiquetas de las métricas (el nombre arriba del número) */
+    /* Etiquetas en gris claro */
     [data-testid="stMetricLabel"] {
-        color: #adb5bd !important;
+        color: #ced4da !important;
         font-weight: bold !important;
+        text-transform: uppercase;
     }
 
     .stMetric { 
-        background-color: #1f2937; 
-        padding: 15px; 
-        border-radius: 12px; 
-        border: 1px solid #374151;
-        box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
-    }
-    
-    .rosa-signal { 
-        background-color: #a21caf; 
+        background-color: #111827; 
         padding: 20px; 
-        border-radius: 10px; 
-        text-align: center; 
-        border: 2px solid #f0abfc; 
+        border-radius: 15px; 
+        border: 1px solid #374151;
+        box-shadow: 0px 10px 15px -3px rgba(0,0,0,0.5);
     }
     </style>
     """, unsafe_allow_html=True)
@@ -70,42 +63,55 @@ def registrar_vuelo():
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("🇵🇾 Panel v3.3")
+    st.header("🇵🇾 Panel de Control")
     st.number_input("Saldo Inicial Gs.", min_value=0, value=50000, step=5000, key="saldo_inicial")
     st.selectbox("Estrategia:", ["Conservadora (1.50x)", "Cazador de Rosas (10x)"], key="modo_juego")
-    if st.button("🔄 Reiniciar Todo"):
+    if st.button("🔄 Reiniciar"):
         st.session_state.historial = []
         st.session_state.ganancia_total = 0
         st.session_state.perdida_acumulada = 0
         st.rerun()
 
-# --- INTERFAZ ---
+# --- INTERFAZ PRINCIPAL ---
 saldo_actual = st.session_state.saldo_inicial + st.session_state.ganancia_total - st.session_state.perdida_acumulada
 
-# Las métricas ahora usarán el estilo "fuerte" definido arriba
 c1, c2, c3 = st.columns(3)
-c1.metric("SALDO ACTUAL", f"{int(saldo_actual):,} Gs")
-c2.metric("GANANCIA NETA", f"{int(st.session_state.ganancia_total):,} Gs")
-c3.metric("DEUDA/RECUP.", f"{int(st.session_state.perdida_acumulada):,} Gs")
+c1.metric("Saldo Actual", f"{int(saldo_actual):,} Gs")
+c2.metric("Ganancia Neta", f"{int(st.session_state.ganancia_total):,} Gs")
+c3.metric("Recuperación", f"{int(st.session_state.perdida_acumulada):,} Gs")
 
 st.markdown("---")
 
-# --- INPUT ---
+# --- REGISTRO ---
 st.subheader("📥 Registro de Vuelo")
 col_in, col_ap = st.columns([2, 1])
-
 with col_in:
-    st.text_input("Escribe el número y presiona ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
-
+    st.text_input("Ingresa el multiplicador y presiona ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
 with col_ap:
     st.write("##")
     st.checkbox("¿Aposté en esta ronda?", key="check_apuesta")
 
-# --- HISTORIAL ---
+# --- HISTORIAL DE BURBUJAS (CORREGIDO) ---
 if st.session_state.historial:
     st.subheader("📊 Historial Reciente")
-    ultimos_vuelos = list(reversed(st.session_state.historial))[:15]
+    ultimos = list(reversed(st.session_state.historial))[:15]
     cols = st.columns(15)
-    for i, valor in enumerate(ultimos_vuelos):
+    
+    for i, val in enumerate(ultimos):
         if i < len(cols):
-            color = "#3498db" if valor < 2.0 else "#9b59b6" if valor < 10.0 else "#
+            # Aquí estaba el error de sintaxis, ahora está blindado:
+            if val < 2.0:
+                color = "#3498db" # Azul
+            elif val < 10.0:
+                color = "#9b59b6" # Morado
+            else:
+                color = "#e91e63" # Rosa
+            
+            with cols[i]:
+                st.markdown(f"""
+                    <div style="background-color:{color}; color:white; border-radius:50%; width:45px; height:45px; 
+                    display:flex; align-items:center; justify-content:center; font-weight:bold; font-size:11px;
+                    border:2px solid rgba(255,255,255,0.2); box-shadow: 0px 4px 6px rgba(0,0,0,0.3);">
+                        {val:.2f}
+                    </div>
+                """, unsafe_allow_html=True)

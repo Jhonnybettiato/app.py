@@ -72,36 +72,50 @@ with st.form("registro_vuelo", clear_on_submit=True):
     # El botón 'submit' dentro del form es el que responde al Enter
     btn_submit = st.form_submit_button("REGISTRAR VUELO")
 
-if btn_submit:
-    # Guardamos en el historial (Limitado a los últimos 50 para no ralentizar)
-    st.session_state.historial.append(vuelo_in)
-    if len(st.session_state.historial) > 50:
-        st.session_state.historial.pop(0)
-    
-    if apostaste:
-        target = 1.50 if modo_juego == "Conservadora (1.50x)" else 10.0
-        apuesta_base = max(2000, int(saldo_inicial * 0.05))
-        
-        if vuelo_in >= target:
-            st.session_state.ganancia_total += (apuesta_base * (target - 1))
-            st.session_state.perdida_acumulada = 0
-            st.balloons()
-        else:
-            st.session_state.perdida_acumulada += apuesta_base
-    st.rerun()
+# --- 8. HISTORIAL ESTILO AVIATOR (NUEVO) ---
+st.markdown("---")
+st.subheader("📊 Historial Reciente (Estilo Aviator)")
 
-# --- SEÑAL Y GRÁFICO ---
-msg, target, tipo = motor_analisis(st.session_state.historial, modo_juego)
-
-if tipo == "success": st.success(f"### {msg}")
-elif tipo == "rosa": st.markdown(f'<div class="rosa-signal"><h2>{msg}</h2></div>', unsafe_allow_html=True)
-elif tipo == "error": st.error(f"### {msg}")
-else: st.info(f"### {msg}")
-
-# Gráfico de 50 vuelos
 if st.session_state.historial:
-    st.write(f"### Historial de Tendencia (Últimos {len(st.session_state.historial)} vuelos)")
-    st.line_chart(st.session_state.historial)
+    # Creamos una fila de burbujas (mostramos las últimas 15)
+    cols = st.columns(15)
+    ultimos_vuelos = list(reversed(st.session_state.historial))[:15]
     
-    # Tabla rápida de los últimos 5 resultados
-    st.write("Últimos resultados:", st.session_state.historial[-5:])
+    for i, valor in enumerate(ultimos_vuelos):
+        if i < len(cols):
+            # Determinar color según el multiplicador
+            if valor < 2.0:
+                bg_color = "#3498db" # Azul
+                text_color = "white"
+            elif valor < 10.0:
+                bg_color = "#9b59b6" # Morado
+                text_color = "white"
+            else:
+                bg_color = "#e91e63" # Rosa
+                text_color = "white"
+            
+            with cols[i]:
+                st.markdown(f"""
+                    <div style="
+                        background-color: {bg_color};
+                        color: {text_color};
+                        border-radius: 50%;
+                        width: 45px;
+                        height: 45px;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        font-weight: bold;
+                        font-size: 12px;
+                        margin-bottom: 10px;
+                        border: 2px solid rgba(255,255,255,0.2);
+                        box-shadow: 0px 4px 6px rgba(0,0,0,0.3);
+                    ">
+                        {valor:.2f}x
+                    </div>
+                """, unsafe_allow_html=True)
+
+# --- 9. GRÁFICO DE TENDENCIA LARGA ---
+if st.session_state.historial:
+    with st.expander("📈 Ver Gráfico de Tendencia Completo (50 vuelos)"):
+        st.line_chart(st.session_state.historial)

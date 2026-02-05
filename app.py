@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v4.2", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v4.3", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -26,7 +26,7 @@ if 'ganancia_neta' not in st.session_state: st.session_state.ganancia_neta = 0
 if 'recuperacion' not in st.session_state: st.session_state.recuperacion = 0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 
-# --- FUNCIONES ---
+# --- FUNCIONES DE REGISTRO ---
 def registrar_vuelo():
     valor = st.session_state.entrada_vuelo
     if valor:
@@ -47,32 +47,32 @@ def registrar_vuelo():
         except: pass
         st.session_state.entrada_vuelo = ""
 
-# --- MOTOR DE SEMÁFORO ACTUALIZADO ---
+# --- MOTOR DE SEMÁFORO (CON HUECO DE TIEMPO) ---
 def motor_semaforo(h, modo):
-    if len(h) < 4: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
+    if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
     
-    ultimos = h[-4:] # Miramos los últimos 4 vuelos
-    
-    if modo == "Estrategia 2x2":
-        # Patrón: [Bajo, Bajo] -> Toca entrar para buscar los 2 altos
-        if h[-1] < 2.0 and h[-2] < 2.0:
-            return "🟢 VERDE: PATRÓN 2x2 DETECTADO", "#00ff41", "black"
-        if h[-1] >= 2.0:
-            return "🔴 ROJO: ESPERAR REINICIO", "#ff3131", "white"
-        return "🟡 AMARILLO: BUSCANDO DOBLE BAJO", "#f1c40f", "black"
-    
-    elif modo == "Conservadora (1.50x)":
-        if h[-1] < 1.2 and h[-2] < 1.2: return "🔴 ROJO: NO APOSTAR", "#ff3131", "white"
-        if sum(h[-3:])/3 >= 1.7: return "🟢 VERDE: DALE!", "#00ff41", "black"
-        return "🟡 AMARILLO: ESPERAR", "#f1c40f", "black"
-    
-    else: # Rosas 10x
-        v_rosa = 0
+    if modo == "Cazador de Rosas (10x)":
+        # Contamos cuántos vuelos han pasado desde la última Rosa
+        v_desde_rosa = 0
         for v in reversed(h):
             if v >= 10: break
-            v_rosa += 1
-        if v_rosa >= 18: return "🟢 VERDE: SEÑAL ROSA", "#e91e63", "white"
-        return "🔴 ROJO: CICLO BAJO", "#ff3131", "white"
+            v_desde_rosa += 1
+        
+        # Lógica de Hueco de Tiempo (25 vuelos)
+        if v_desde_rosa >= 25:
+            return f"🟢 VERDE: HUECO DETECTADO ({v_desde_rosa} VUELOS)", "#e91e63", "white"
+        elif v_desde_rosa >= 18:
+            return f"🟡 AMARILLO: PRESIÓN ALTA ({v_desde_rosa}/25)", "#f1c40f", "black"
+        else:
+            return f"🔴 ROJO: CICLO JOVEN ({v_desde_rosa} VUELOS)", "#ff3131", "white"
+    
+    elif modo == "Estrategia 2x2":
+        if h[-1] < 2.0 and h[-2] < 2.0: return "🟢 VERDE: ENTRAR 2x2", "#00ff41", "black"
+        return "🟡 AMARILLO: BUSCANDO PATRÓN", "#f1c40f", "black"
+    
+    else: # Conservadora
+        if h[-1] < 1.2 and h[-2] < 1.2: return "🔴 ROJO: ESPERAR", "#ff3131", "white"
+        return "🟢 VERDE: DALE!", "#00ff41", "black"
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -83,13 +83,13 @@ with st.sidebar:
         st.session_state.primer_inicio = False
     
     obj_pct = st.slider("Meta %", 10, 100, 20)
-    st.selectbox("Estrategia:", ["Conservadora (1.50x)", "Estrategia 2x2", "Cazador de Rosas (10x)"], key="modo_juego")
+    st.selectbox("Estrategia:", ["Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], key="modo_juego")
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear()
         st.rerun()
 
 # --- CÁLCULOS ---
-div_ap = 5 if st.session_state.modo_juego == "Conservadora (1.50x)" else 8 if st.session_state.modo_juego == "Estrategia 2x2" else 25
+div_ap = 25 if st.session_state.modo_juego == "Cazador de Rosas (10x)" else 8 if st.session_state.modo_juego == "Estrategia 2x2" else 5
 st.session_state.apuesta_sugerida = max(2000, int(((saldo_input * (obj_pct/100)) / div_ap) // 1000) * 1000)
 
 # --- INTERFAZ ---
@@ -110,7 +110,7 @@ with col_ap: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 # HISTORIAL
 if st.session_state.historial:
     html_b = ""
-    for val in reversed(st.session_state.historial[-20:]):
+    for val in reversed(st.session_state.historial[-30:]): # Mostramos más para ver el hueco
         color = "#3498db" if val < 2.0 else "#9b59b6" if val < 10.0 else "#e91e63"
         html_b += f'<div class="burbuja" style="background-color:{color};">{val:.2f}</div>'
     st.markdown(f'<div class="historial-container">{html_b}</div>', unsafe_allow_html=True)

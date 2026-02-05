@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v5.3", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v5.4", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -24,6 +24,7 @@ st.markdown("""
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
+if 'ultimo_cambio_saldo' not in st.session_state: st.session_state.ultimo_cambio_saldo = 0.0
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -34,8 +35,6 @@ with st.sidebar:
         st.session_state.primer_inicio = False
     
     obj_pct = st.slider("Meta %", 10, 100, 20)
-    
-    # NOMBRE ACTUALIZADO
     modo = st.selectbox("Estrategia:", 
                         ["Estrategia del Hueco 10x o +", "Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], 
                         key="modo_juego")
@@ -47,28 +46,40 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- REGISTRO ---
+# --- FUNCIONES DE REGISTRO Y DESHACER ---
 def registrar_vuelo():
     if st.session_state.entrada_vuelo:
         try:
             vuelo_val = float(st.session_state.entrada_vuelo.replace(',', '.'))
             st.session_state.historial.append(vuelo_val)
+            
+            # Guardamos el cambio neto para poder deshacerlo
+            cambio_neto = 0.0
+            
             if st.session_state.check_apuesta:
                 ap_real = float(st.session_state.valor_apuesta_manual)
+                if "10x" in st.session_state.modo_juego or "Hueco" in st.session_state.modo_juego: target = 10.0
+                elif "2x2" in st.session_state.modo_juego: target = 2.0
+                else: target = 1.50
                 
-                # Target según modo (10x para rosas y hueco)
-                if "10x" in st.session_state.modo_juego or "Hueco" in st.session_state.modo_juego:
-                    target = 10.0
-                elif "2x2" in st.session_state.modo_juego:
-                    target = 2.0
-                else:
-                    target = 1.50
+                cambio_neto -= ap_real
+                if vuelo_val > target:
+                    cambio_neto += (ap_real * target)
                 
-                st.session_state.saldo_dinamico -= ap_real
-                if vuelo_val > target: # Lógica estricta de superación
-                    st.session_state.saldo_dinamico += (ap_real * target)
+                st.session_state.saldo_dinamico += cambio_neto
+                st.session_state.ultimo_cambio_saldo = cambio_neto
+            else:
+                st.session_state.ultimo_cambio_saldo = 0.0
+                
         except: pass
         st.session_state.entrada_vuelo = ""
+
+def deshacer_ultimo():
+    if st.session_state.historial:
+        st.session_state.historial.pop()
+        st.session_state.saldo_dinamico -= st.session_state.ultimo_cambio_saldo
+        st.session_state.ultimo_cambio_saldo = 0.0
+        st.rerun()
 
 # --- COMPENSACIÓN Y MÉTRICAS ---
 diferencia = st.session_state.saldo_dinamico - saldo_in
@@ -77,7 +88,7 @@ c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
 c2.metric("Ganancias", f"{int(max(0, diferencia)):,} Gs")
 c3.metric("Perdidas", f"{int(abs(min(0, diferencia))):,} Gs")
 
-# --- CONTEO DE HUECO ---
+# --- LÓGICA DE HUECO ---
 v_desde_rosa = 0
 for v in reversed(st.session_state.historial):
     if v >= 10: break
@@ -86,26 +97,20 @@ for v in reversed(st.session_state.historial):
 # --- SEMÁFORO ---
 def motor_semaforo(h, modo_sel, hueco):
     if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
-    
     if "Estrategia del Hueco" in modo_sel:
         if hueco >= 25: return f"💖 HUECO 10x ACTIVO ({hueco})", "#e91e63", "white"
         return f"⏳ CARGANDO HUECO ({hueco}/25)", "#2d3436", "white"
-    
     elif "Cazador de Rosas" in modo_sel:
         if h[-1] >= 10: return "🟢 ROSA RECIENTE", "#00ff41", "black"
         return "🔴 BUSCANDO ROSA", "#ff3131", "white"
-    
     elif "2x2" in modo_sel:
         if len(h) >= 2 and h[-1] < 2.0 and h[-2] < 2.0: return "🟢 PATRÓN 2x2", "#00ff41", "black"
         return "🟡 BUSCANDO DOBLE BAJO", "#f1c40f", "black"
-    
-    else:
-        return "🟢 FLUJO ESTABLE (1.50x)", "#00ff41", "black"
+    else: return "🟢 FLUJO ESTABLE (1.50x)", "#00ff41", "black"
 
 msg, bg, txt = motor_semaforo(st.session_state.historial, modo, v_desde_rosa)
 st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="radar-rosas">📡 RADAR ROSA: {v_desde_rosa} vuelos sin 10x+</div>', unsafe_allow_html=True)
-
 st.markdown(f'<div class="apuesta-box">📢 APUESTA SUGERIDA: {apuesta_auto:,} Gs</div>', unsafe_allow_html=True)
 
 st.markdown("---")
@@ -113,6 +118,10 @@ col_v, col_m, col_c = st.columns([2, 1, 1])
 with col_v: st.text_input("Resultado y ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
 with col_m: st.number_input("Gs. Apostados:", value=float(apuesta_auto), step=1000.0, key="valor_apuesta_manual")
 with col_c: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
+
+# BOTÓN DESHACER
+if st.button("⬅️ Deshacer Último Registro"):
+    deshacer_ultimo()
 
 # HISTORIAL
 if st.session_state.historial:

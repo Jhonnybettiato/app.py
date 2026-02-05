@@ -108,3 +108,34 @@ if tipo == "success":
             st.rerun()
     with b2:
         if st.button("❌ PER
+
+# --- AÑADIR ESTO AL FINAL DE TU APP.PY ---
+st.markdown("---")
+st.header("📈 Reporte de Ganancias Diarias")
+
+# Inicializar tabla de ganancias si no existe
+if 'diario' not in st.session_state:
+    st.session_state.diario = []
+
+# Columna para registrar sesión finalizada
+with st.container():
+    col_inf1, col_inf2 = st.columns(2)
+    with col_inf1:
+        if st.button("💾 Guardar Sesión Actual"):
+            ganancia_neta = saldo_actual - (saldo_actual / (1 + meta_ganancia/100))
+            st.session_state.diario.append({
+                "Fecha": pd.Timestamp.now().strftime("%Y-%m-%d %H:%M"),
+                "Ganancia": round(ganancia_neta, 2),
+                "Estado": "✅ Meta Alcanzada" if saldo_actual >= meta_final else "⏹️ Sesión Cerrada"
+            })
+            st.toast("Sesión guardada en el historial diario")
+
+    with col_inf2:
+        if st.session_state.diario:
+            df_diario = pd.DataFrame(st.session_state.diario)
+            total_hoy = df_diario['Ganancia'].sum()
+            st.metric("Total Ganado Hoy", f"{total_hoy:.2f}")
+
+# Mostrar la tabla de historial
+if st.session_state.diario:
+    st.table(df_diario)

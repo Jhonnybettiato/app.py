@@ -1,8 +1,8 @@
 import streamlit as st
 import pandas as pd
 
-# 1. Configuración y Estilo
-st.set_page_config(page_title="Aviator Elite PY v3.0", page_icon="🦅", layout="wide")
+# 1. Configuración de página
+st.set_page_config(page_title="Aviator Elite PY v3.1", page_icon="🦅", layout="wide")
 
 st.markdown("""
     <style>
@@ -14,14 +14,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización
+# 2. Inicialización de Estado
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'perdida_acumulada' not in st.session_state: st.session_state.perdida_acumulada = 0
 if 'ganancia_total' not in st.session_state: st.session_state.ganancia_total = 0
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("🇵🇾 Panel v3.0")
+    st.header("🇵🇾 Panel de Control")
     saldo_inicial = st.number_input("Saldo Inicial Gs.", min_value=0, value=50000, step=5000)
     modo_juego = st.selectbox("Estrategia:", ["Conservadora (1.50x)", "Cazador de Rosas (10x)"])
     if st.button("🔄 Reiniciar"):
@@ -38,7 +38,6 @@ def motor_analisis(h, modo):
     for v in reversed(h):
         if v >= 10: break
         vuelos_desde_rosa += 1
-
     if modo == "Conservadora (1.50x)":
         if all(x < 1.30 for x in ultimos): return "🛑 Riesgo: Racha Baja", 0, "error"
         if sum(ultimos)/3 > 1.8: return "🔥 SEÑAL: Entrar a 1.50x", 1.50, "success"
@@ -57,29 +56,43 @@ c3.metric("Deuda", f"{int(st.session_state.perdida_acumulada):,} Gs")
 
 st.markdown("---")
 
-# --- REGISTRO DE VUELO ---
-with st.form("registro_vuelo", clear_on_submit=True):
-    # IMPORTANTE: El valor se captura al dar Enter o Click
-    vuelo_in = st.number_input("Resultado del avión (Ej: 2.50):", min_value=1.0, step=0.01, format="%.2f")
-    apostaste = st.checkbox("¿Aposté en esta ronda?")
-    btn_submit = st.form_submit_button("REGISTRAR VUELO")
+# --- REGISTRO DE VUELO (NUEVA LÓGICA SIN FORM PARA EVITAR ERRORES) ---
+st.subheader("📥 Registro de Vuelo")
+col_input, col_check = st.columns([2, 1])
 
-    if btn_submit:
-        # Aquí guardamos el valor real ingresado
-        st.session_state.historial.append(vuelo_in)
+with col_input:
+    # Usamos text_input para asegurar que el Enter siempre dispare la acción
+    vuelo_str = st.text_input("Multiplicador (ej: 2.50) y presiona ENTER:", key="input_vuelo_txt")
+
+with col_check:
+    st.write("##") # Espaciador
+    apostaste = st.checkbox("¿Aposté en esta ronda?", key="check_apuesta")
+
+# Función para procesar el registro
+if vuelo_str:
+    try:
+        vuelo_val = float(vuelo_str.replace(',', '.'))
+        # Añadir al historial
+        st.session_state.historial.append(vuelo_val)
         if len(st.session_state.historial) > 50:
             st.session_state.historial.pop(0)
         
+        # Procesar apuesta si marcó el check
         if apostaste:
             target = 1.50 if modo_juego == "Conservadora (1.50x)" else 10.0
             apuesta_base = max(2000, int(saldo_inicial * 0.05))
-            if vuelo_in >= target:
+            if vuelo_val >= target:
                 st.session_state.ganancia_total += (apuesta_base * (target - 1))
                 st.session_state.perdida_acumulada = 0
                 st.balloons()
             else:
                 st.session_state.perdida_acumulada += apuesta_base
+        
+        # Limpiar el input y refrescar
+        st.session_state.input_vuelo_txt = "" # Intentar limpiar para el siguiente
         st.rerun()
+    except ValueError:
+        st.error("Por favor, ingresa un número válido (ej: 1.55)")
 
 # --- SEÑAL Y BURBUJAS ---
 msg, target, tipo = motor_analisis(st.session_state.historial, modo_juego)

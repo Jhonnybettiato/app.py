@@ -1,7 +1,7 @@
 import streamlit as st
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v5.1", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v5.2", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -34,9 +34,14 @@ with st.sidebar:
         st.session_state.primer_inicio = False
     
     obj_pct = st.slider("Meta %", 10, 100, 20)
-    modo = st.selectbox("Estrategia:", ["Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], key="modo_juego")
     
-    div_ap = 25 if modo == "Cazador de Rosas (10x)" else 8 if modo == "Estrategia 2x2" else 5
+    # NUEVA LISTA DE ESTRATEGIAS
+    modo = st.selectbox("Estrategia:", 
+                        ["Estrategia del Hueco", "Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], 
+                        key="modo_juego")
+    
+    # Divisores de apuesta
+    div_ap = 25 if "Rosas" in modo or "Hueco" in modo else 8 if "2x2" in modo else 5
     apuesta_auto = max(2000, int(((saldo_in * (obj_pct/100)) / div_ap) // 1000) * 1000)
 
     if st.button("🔄 Reiniciar App"):
@@ -51,7 +56,15 @@ def registrar_vuelo():
             st.session_state.historial.append(vuelo_val)
             if st.session_state.check_apuesta:
                 ap_real = float(st.session_state.valor_apuesta_manual)
-                target = 10.0 if st.session_state.modo_juego == "Cazador de Rosas (10x)" else 2.0 if st.session_state.modo_juego == "Estrategia 2x2" else 1.50
+                
+                # Target según modo
+                if "Rosas" in st.session_state.modo_juego or "Hueco" in st.session_state.modo_juego:
+                    target = 10.0
+                elif "2x2" in st.session_state.modo_juego:
+                    target = 2.0
+                else:
+                    target = 1.50
+                
                 st.session_state.saldo_dinamico -= ap_real
                 if vuelo_val > target: # Lógica estricta casino
                     st.session_state.saldo_dinamico += (ap_real * target)
@@ -65,26 +78,30 @@ c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
 c2.metric("Ganancias", f"{int(max(0, diferencia)):,} Gs")
 c3.metric("Perdidas", f"{int(abs(min(0, diferencia))):,} Gs")
 
-# --- MOTOR SEMÁFORO + CONTADOR DE HUECO ---
+# --- LÓGICA DE HUECO ---
 v_desde_rosa = 0
 for v in reversed(st.session_state.historial):
     if v >= 10: break
     v_desde_rosa += 1
 
+# --- SEMÁFORO ACTUALIZADO ---
 def motor_semaforo(h, modo_sel, hueco):
     if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
     
-    if modo_sel == "Cazador de Rosas (10x)":
-        if hueco >= 25: return f"🟢 VERDE: HUECO DETECTADO ({hueco})", "#e91e63", "white"
-        return f"🔴 ROJO: ESPERANDO HUECO ({hueco}/25)", "#ff3131", "white"
+    if modo_sel == "Estrategia del Hueco":
+        if hueco >= 25: return f"💖 HUECO ACTIVO ({hueco})", "#e91e63", "white"
+        return f"⏳ CARGANDO HUECO ({hueco}/25)", "#2d3436", "white"
+    
+    elif modo_sel == "Cazador de Rosas (10x)":
+        if h[-1] >= 10: return "🟢 ROSA RECIENTE", "#00ff41", "black"
+        return "🔴 BUSCANDO ROSA", "#ff3131", "white"
     
     elif modo_sel == "Estrategia 2x2":
-        if len(h) >= 2 and h[-1] < 2.0 and h[-2] < 2.0: return "🟢 VERDE: PATRÓN 2x2", "#00ff41", "black"
+        if len(h) >= 2 and h[-1] < 2.0 and h[-2] < 2.0: return "🟢 PATRÓN 2x2", "#00ff41", "black"
         return "🟡 BUSCANDO DOBLE BAJO", "#f1c40f", "black"
     
     else: # Conservadora
-        if len(h) >= 2 and h[-1] < 1.2 and h[-2] < 1.2: return "🔴 ROJO: RIESGO ALTO", "#ff3131", "white"
-        return "🟢 VERDE: FLUJO ESTABLE", "#00ff41", "black"
+        return "🟢 FLUJO ESTABLE (1.50x)", "#00ff41", "black"
 
 msg, bg, txt = motor_semaforo(st.session_state.historial, modo, v_desde_rosa)
 st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)

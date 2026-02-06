@@ -1,9 +1,9 @@
 import streamlit as st
 from datetime import datetime
-import pytz # Para la hora exacta de Paraguay
+import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v5.5", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v5.6", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -14,20 +14,21 @@ st.markdown("""
     .apuesta-box { background-color: #ffeb3b; color: #000000; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 1.4rem; margin: 10px 0px; }
     .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; }
     .radar-rosas { background-color: #2d3436; color: #fd79a8; padding: 5px; border-radius: 5px; text-align: center; font-size: 0.9rem; margin-top: -10px; font-weight: bold; }
-    .time-box { background-color: #1e272e; color: #ef5777; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin: 10px 0px; border: 1px dashed #ef5777; }
+    .time-display { background-color: #1e272e; color: #ef5777; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin: 10px 0px; border: 1px dashed #ef5777; font-size: 1.1rem; }
     .historial-container { display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding: 10px 0px; }
     .burbuja { min-width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🦅 Aviator Elite PY v5.5")
+st.title("🦅 Aviator Elite PY v5.6")
 
 # 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 if 'ultimo_cambio_saldo' not in st.session_state: st.session_state.ultimo_cambio_saldo = 0.0
-if 'hora_ultima_rosa' not in st.session_state: st.session_state.hora_ultima_rosa = "Sin registros"
+# Hora inicial por defecto
+if 'hora_manual' not in st.session_state: st.session_state.hora_manual = "00:00"
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -41,6 +42,9 @@ with st.sidebar:
     modo = st.selectbox("Estrategia:", 
                         ["Estrategia del Hueco 10x o +", "Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], 
                         key="modo_juego")
+    
+    # NUEVO: Input manual para la hora de la rosa
+    st.session_state.hora_manual = st.text_input("Editar Hora Última Rosa:", value=st.session_state.hora_manual)
     
     div_ap = 25 if "10x" in modo or "Hueco" in modo else 8 if "2x2" in modo else 5
     apuesta_auto = max(2000, int(((saldo_in * (obj_pct/100)) / div_ap) // 1000) * 1000)
@@ -56,16 +60,15 @@ def registrar_vuelo():
             vuelo_val = float(st.session_state.entrada_vuelo.replace(',', '.'))
             st.session_state.historial.append(vuelo_val)
             
-            # --- Lógica de Horario de Rosa ---
+            # Auto-captura si es rosa
             if vuelo_val >= 10.0:
                 py_tz = pytz.timezone('America/Asuncion')
-                st.session_state.hora_ultima_rosa = datetime.now(py_tz).strftime("%H:%M:%S")
+                st.session_state.hora_manual = datetime.now(py_tz).strftime("%H:%M")
             
             cambio_neto = 0.0
             if st.session_state.check_apuesta:
                 ap_real = float(st.session_state.valor_apuesta_manual)
                 target = 10.0 if ("10x" in st.session_state.modo_juego or "Hueco" in st.session_state.modo_juego) else 2.0 if "2x2" in st.session_state.modo_juego else 1.50
-                
                 cambio_neto -= ap_real
                 if vuelo_val > target:
                     cambio_neto += (ap_real * target)
@@ -107,8 +110,8 @@ msg, bg, txt = motor_semaforo(st.session_state.historial, modo, v_desde_rosa)
 st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="radar-rosas">📡 RADAR ROSA: {v_desde_rosa} vuelos sin 10x+</div>', unsafe_allow_html=True)
 
-# NUEVA CAJA DE HORARIO
-st.markdown(f'<div class="time-box">🌸 ÚLTIMA ROSA DETECTADA A LAS: {st.session_state.hora_ultima_rosa}</div>', unsafe_allow_html=True)
+# VISUALIZACIÓN DEL HORARIO (Toma el valor del sidebar)
+st.markdown(f'<div class="time-display">🌸 ÚLTIMA ROSA: {st.session_state.hora_manual} hs</div>', unsafe_allow_html=True)
 
 st.markdown(f'<div class="apuesta-box">📢 APUESTA SUGERIDA: {apuesta_auto:,} Gs</div>', unsafe_allow_html=True)
 

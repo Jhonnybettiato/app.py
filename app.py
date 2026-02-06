@@ -20,6 +20,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
+# --- TÍTULO (EL QUE FALTABA) ---
+st.title("🦅 Aviator Elite PY v5.4")
+
 # 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
@@ -46,14 +49,12 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- FUNCIONES DE REGISTRO Y DESHACER ---
+# --- FUNCIONES ---
 def registrar_vuelo():
     if st.session_state.entrada_vuelo:
         try:
             vuelo_val = float(st.session_state.entrada_vuelo.replace(',', '.'))
             st.session_state.historial.append(vuelo_val)
-            
-            # Guardamos el cambio neto para poder deshacerlo
             cambio_neto = 0.0
             
             if st.session_state.check_apuesta:
@@ -70,7 +71,6 @@ def registrar_vuelo():
                 st.session_state.ultimo_cambio_saldo = cambio_neto
             else:
                 st.session_state.ultimo_cambio_saldo = 0.0
-                
         except: pass
         st.session_state.entrada_vuelo = ""
 
@@ -81,7 +81,7 @@ def deshacer_ultimo():
         st.session_state.ultimo_cambio_saldo = 0.0
         st.rerun()
 
-# --- COMPENSACIÓN Y MÉTRICAS ---
+# --- PANEL DE MÉTRICAS ---
 diferencia = st.session_state.saldo_dinamico - saldo_in
 c1, c2, c3 = st.columns(3)
 c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
@@ -119,7 +119,6 @@ with col_v: st.text_input("Resultado y ENTER:", key="entrada_vuelo", on_change=r
 with col_m: st.number_input("Gs. Apostados:", value=float(apuesta_auto), step=1000.0, key="valor_apuesta_manual")
 with col_c: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 
-# BOTÓN DESHACER
 if st.button("⬅️ Deshacer Último Registro"):
     deshacer_ultimo()
 

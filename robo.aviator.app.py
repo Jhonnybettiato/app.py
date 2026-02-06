@@ -9,7 +9,6 @@ st.set_page_config(page_title="Aviator Elite PY v6.0", page_icon="🦅", layout=
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
-    [data-testid="stMetricValue"] { font-weight: 850 !important; font-size: 2.2rem !important; }
     .stMetric { background-color: #111827; padding: 20px; border-radius: 15px; border: 1px solid #374151; }
     .apuesta-box { background-color: #ffeb3b; color: #000000; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 1.4rem; margin: 10px 0px; }
     .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; }
@@ -32,7 +31,6 @@ st.title("🦅 Aviator Elite PY v6.0")
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
-if 'ultimo_cambio_saldo' not in st.session_state: st.session_state.ultimo_cambio_saldo = 0.0
 
 py_tz = pytz.timezone('America/Asuncion')
 now_str = datetime.now(py_tz).strftime("%H:%M")
@@ -78,15 +76,13 @@ def registrar_vuelo():
                 ap_real = float(st.session_state.valor_apuesta_manual)
                 target = 10.0 if ("10x" in modo or "Hueco" in modo) else 2.0 if "2x2" in modo else 1.50
                 st.session_state.saldo_dinamico -= ap_real
-                if v_val >= target: st.session_state.saldo_dinamico += (ap_real * target)
+                if v_val >= target: st.session_state.saldo_dinamico += (ap_real * v_val)
         except: pass
         st.session_state.entrada_vuelo = ""
 
-# --- LÓGICA DE ESTRATEGIAS (EL MOTOR) ---
+# --- LÓGICA DE ESTRATEGIAS ---
 def motor_semaforo(h, modo_sel):
     if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
-    
-    # 1. Estrategia del Hueco
     if "Hueco" in modo_sel:
         hueco = 0
         for v in reversed(h):
@@ -94,31 +90,50 @@ def motor_semaforo(h, modo_sel):
             hueco += 1
         if hueco >= 25: return f"💖 HUECO ACTIVO ({hueco} v)", "#e91e63", "white"
         return f"⏳ CARGANDO HUECO ({hueco}/25)", "#2d3436", "white"
-    
-    # 2. Cazador de Rosas
     if "Cazador" in modo_sel:
         if h[-1] >= 10: return "🟢 ROSA RECIENTE", "#00ff41", "black"
         return "🔴 BUSCANDO ROSA", "#ff3131", "white"
-    
-    # 3. Estrategia 2x2 (Dos bajos, señal para buscar el alto)
     if "2x2" in modo_sel:
         if h[-1] < 2.0 and h[-2] < 2.0: return "🟢 ENTRADA 2x2 DETECTADA", "#00ff41", "black"
         if h[-1] < 2.0: return "🟡 ESPERANDO SEGUNDO BAJO", "#f1c40f", "black"
         return "🔴 BUSCANDO PATRÓN 2x2", "#2d3436", "white"
-        
-    # 4. Conservadora
     if "Conservadora" in modo_sel:
         if h[-1] < 1.50: return "🟢 ENTRADA SEGURA (1.50x)", "#00ff41", "black"
         return "🟡 ESPERANDO BAJO", "#f1c40f", "black"
-
     return "🟢 SISTEMA LISTO", "#00ff41", "black"
 
-# --- INTERFAZ ---
+# --- INTERFAZ DE MÉTRICAS (COLORES MEJORADOS) ---
 diferencia_gs = st.session_state.saldo_dinamico - saldo_in
+color_ganancia = "#00ff41" # Verde neón
+color_perdida = "#ff3131"  # Rojo brillante
+
 c1, c2, c3 = st.columns(3)
-c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
-c2.metric("Ganancias", f"{int(max(0, diferencia_gs)):,} Gs")
-c3.metric("Perdidas", f"{int(abs(min(0, diferencia_gs))):,} Gs")
+
+with c1:
+    st.markdown(f"""
+        <div style="background-color: #1e272e; padding: 15px; border-radius: 10px; border: 1px solid #374151; text-align: center;">
+            <p style="margin:0; font-size: 0.9rem; color: #bdc3c7;">Saldo Actual</p>
+            <h2 style="margin:0; color: #ffffff; font-size: 2rem;">{int(st.session_state.saldo_dinamico):,} Gs</h2>
+        </div>
+    """, unsafe_allow_html=True)
+
+with c2:
+    ganancia_val = max(0, diferencia_gs)
+    st.markdown(f"""
+        <div style="background-color: #1e272e; padding: 15px; border-radius: 10px; border: 1px solid {color_ganancia if ganancia_val > 0 else '#374151'}; text-align: center;">
+            <p style="margin:0; font-size: 0.9rem; color: #bdc3c7;">Ganancias</p>
+            <h2 style="margin:0; color: {color_ganancia}; font-size: 2rem;">+ {int(ganancia_val):,} Gs</h2>
+        </div>
+    """, unsafe_allow_html=True)
+
+with c3:
+    perdida_val = abs(min(0, diferencia_gs))
+    st.markdown(f"""
+        <div style="background-color: #1e272e; padding: 15px; border-radius: 10px; border: 1px solid {color_perdida if perdida_val > 0 else '#374151'}; text-align: center;">
+            <p style="margin:0; font-size: 0.9rem; color: #bdc3c7;">Pérdidas</p>
+            <h2 style="margin:0; color: {color_perdida}; font-size: 2rem;">- {int(perdida_val):,} Gs</h2>
+        </div>
+    """, unsafe_allow_html=True)
 
 # SEMÁFORO
 msg, bg, txt = motor_semaforo(st.session_state.historial, modo)

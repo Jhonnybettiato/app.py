@@ -3,9 +3,23 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v7.0", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v7.5 Auto", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS ---
+# --- NUEVA FUNCIÓN DE RECEPCIÓN AUTOMÁTICA ---
+def procesar_entrada_externa():
+    # Lee parámetros de la URL (ej: ?vuelo=2.50)
+    params = st.query_params
+    if "vuelo" in params:
+        valor_vuelo = params["vuelo"]
+        # Evitamos duplicados procesando solo si es un valor nuevo
+        if "ultimo_vuelo_auto" not in st.session_state or st.session_state.ultimo_vuelo_auto != valor_vuelo:
+            st.session_state.entrada_vuelo = valor_vuelo
+            st.session_state.ultimo_vuelo_auto = valor_vuelo
+            registrar_vuelo()
+            # Limpiar el parámetro para no entrar en bucle
+            st.query_params.clear()
+
+# --- DISEÑO CSS (Igual al anterior) ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
@@ -25,7 +39,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🦅 Aviator Elite PY v7.0")
+st.title("🦅 Aviator Elite PY v7.5 Auto")
 
 # 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
@@ -80,33 +94,28 @@ def registrar_vuelo():
         except: pass
         st.session_state.entrada_vuelo = ""
 
-# --- LÓGICA DE ALERTAS ---
+# Ejecutar proceso automático si hay datos en URL
+procesar_entrada_externa()
+
+# --- LÓGICA DE ALERTAS Y MÉTRICAS (Igual al anterior) ---
 ganancia_actual = st.session_state.saldo_dinamico - saldo_in
 
-# 1. Alerta Meta
 if ganancia_actual >= meta_ganancia and meta_ganancia > 0:
     st.markdown(f'<div class="meta-alcanzada">🎯 META ALCANZADA: +{int(ganancia_actual):,} Gs<br><span style="font-size:1rem;">RETIRÁ TU GANANCIA YA</span></div>', unsafe_allow_html=True)
 
-# 2. Detector de Racha Peligrosa (3 azules seguidos)
 if len(st.session_state.historial) >= 3:
     if all(v < 1.5 for v in st.session_state.historial[-3:]):
-        st.error("⚠️ ALERTA DE RIESGO: 3 vuelos muy bajos seguidos. El casino está recolectando. ¡ESPERÁ!")
+        st.error("⚠️ ALERTA DE RIESGO: Racha de bajos detectada.")
 
-# --- MÉTRICAS VIBRANTES ---
 c1, c2, c3, c4 = st.columns(4)
-with c1:
-    st.markdown(f'<div style="background-color:#1e272e;padding:15px;border-radius:10px;border:1px solid #374151;text-align:center;"><p style="margin:0;color:#bdc3c7;font-size:0.8rem;">SALDO ACTUAL</p><h2 style="margin:0;color:#ffffff;">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
-with c2:
-    val_g = max(0, ganancia_actual)
-    st.markdown(f'<div style="background-color:#1e272e;padding:15px;border-radius:10px;border:1px solid #00ff41;text-align:center;"><p style="margin:0;color:#bdc3c7;font-size:0.8rem;">GANANCIA</p><h2 style="margin:0;color:#00ff41;">+{int(val_g):,}</h2></div>', unsafe_allow_html=True)
-with c3:
-    val_p = abs(min(0, ganancia_actual))
-    st.markdown(f'<div style="background-color:#1e272e;padding:15px;border-radius:10px;border:1px solid #ff3131;text-align:center;"><p style="margin:0;color:#bdc3c7;font-size:0.8rem;">PÉRDIDA</p><h2 style="margin:0;color:#ff3131;">-{int(val_p):,}</h2></div>', unsafe_allow_html=True)
+with c1: st.markdown(f'<div style="background-color:#1e272e;padding:15px;border-radius:10px;border:1px solid #374151;text-align:center;"><p style="margin:0;color:#bdc3c7;font-size:0.8rem;">SALDO ACTUAL</p><h2 style="margin:0;color:#ffffff;">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
+with c2: st.markdown(f'<div style="background-color:#1e272e;padding:15px;border-radius:10px;border:1px solid #00ff41;text-align:center;"><p style="margin:0;color:#bdc3c7;font-size:0.8rem;">GANANCIA</p><h2 style="margin:0;color:#00ff41;">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
+with c3: st.markdown(f'<div style="background-color:#1e272e;padding:15px;border-radius:10px;border:1px solid #ff3131;text-align:center;"><p style="margin:0;color:#bdc3c7;font-size:0.8rem;">PÉRDIDA</p><h2 style="margin:0;color:#ff3131;">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
 with c4:
     max_v = max(st.session_state.historial) if st.session_state.historial else 0
     st.markdown(f'<div style="background-color:#1e272e;padding:15px;border-radius:10px;border:1px solid #9b59b6;text-align:center;"><p style="margin:0;color:#bdc3c7;font-size:0.8rem;">RÉCORD SESIÓN</p><h2 style="margin:0;color:#9b59b6;">{max_v}x</h2></div>', unsafe_allow_html=True)
 
-# --- SEMÁFORO Y MOTOR ---
+# SEMÁFORO (Igual al anterior)
 def motor_semaforo(h, modo_sel):
     if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
     if "Hueco" in modo_sel:
@@ -127,37 +136,18 @@ def motor_semaforo(h, modo_sel):
 msg, bg, txt = motor_semaforo(st.session_state.historial, modo)
 st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)
 
-# --- RADAR DE PROBABILIDAD (MEJORA) ---
+# RADAR
 v_desde_rosa = 0
 for v in reversed(st.session_state.historial):
     if v >= 10: break
     v_desde_rosa += 1
-
-color_radar = "#2d3436"
-status_radar = "BAJA"
-if 20 <= v_desde_rosa < 30: 
-    color_radar = "#f39c12"; status_radar = "MEDIA"
-elif v_desde_rosa >= 30: 
-    color_radar = "#e91e63"; status_radar = "¡ALTA!"
-
-st.markdown(f'<div class="radar-rosas" style="background-color:{color_radar}; color:white;">📡 PROBABILIDAD DE ROSA: {status_radar} ({v_desde_rosa} vuelos sin salir)</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="radar-rosas" style="background-color:#2d3436; color:white;">📡 RADAR: {v_desde_rosa} vuelos sin 10x</div>', unsafe_allow_html=True)
 
 # TIEMPOS
-def get_minutos(hora_str):
-    if hora_str == "---": return "?"
-    try:
-        ahora = datetime.now(pytz.timezone('America/Asuncion'))
-        h_r = datetime.strptime(hora_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day)
-        h_r = py_tz.localize(h_r)
-        diff = ahora - h_r
-        m = int(diff.total_seconds() / 60)
-        return m if m >= 0 else (m + 1440)
-    except: return "?"
-
 st.markdown(f"""
     <div class="time-container">
-        <div class="time-card"><div class="time-label">🌸 ÚLTIMA ROSA</div><div class="time-value">{st.session_state.hora_10x} hs</div><div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_10x)} min</div></div>
-        <div class="time-card giant"><div class="time-label">👑 GIGANTE (100x)</div><div class="time-value">{st.session_state.hora_100x} hs</div><div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_100x)} min</div></div>
+        <div class="time-card"><div class="time-label">🌸 ÚLTIMA ROSA</div><div class="time-value">{st.session_state.hora_10x} hs</div></div>
+        <div class="time-card giant"><div class="time-label">👑 GIGANTE (100x)</div><div class="time-value">{st.session_state.hora_100x} hs</div></div>
     </div>
 """, unsafe_allow_html=True)
 
@@ -169,7 +159,7 @@ with col_v: st.text_input("Resultado del Vuelo:", key="entrada_vuelo", on_change
 with col_m: st.number_input("Gs. Apostados:", value=float(ap_sug), step=1000.0, key="valor_apuesta_manual")
 with col_c: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 
-st.write("### 📜 Historial (Últimos 40)")
+# HISTORIAL
 if st.session_state.historial:
     html_b = ""
     for val in reversed(st.session_state.historial[-40:]):
@@ -177,7 +167,7 @@ if st.session_state.historial:
         html_b += f'<div class="burbuja" style="background-color:{color};">{val:.2f}</div>'
     st.markdown(f'<div class="historial-container">{html_b}</div>', unsafe_allow_html=True)
 
-if st.button("⬅️ Deshacer último"):
+if st.button("⬅️ Deshacer"):
     if st.session_state.historial:
         st.session_state.historial.pop()
         st.rerun()

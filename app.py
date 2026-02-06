@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v5.6", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v5.7", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -14,21 +14,23 @@ st.markdown("""
     .apuesta-box { background-color: #ffeb3b; color: #000000; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 1.4rem; margin: 10px 0px; }
     .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; }
     .radar-rosas { background-color: #2d3436; color: #fd79a8; padding: 5px; border-radius: 5px; text-align: center; font-size: 0.9rem; margin-top: -10px; font-weight: bold; }
-    .time-display { background-color: #1e272e; color: #ef5777; padding: 10px; border-radius: 10px; text-align: center; font-weight: bold; margin: 10px 0px; border: 1px dashed #ef5777; font-size: 1.1rem; }
+    .time-display { background-color: #1e272e; color: #ef5777; padding: 10px; border-radius: 10px 10px 0px 0px; text-align: center; font-weight: bold; margin-top: 10px; border: 1px dashed #ef5777; font-size: 1.1rem; border-bottom: none; }
+    .timer-display { background-color: #1e272e; color: #00ff41; padding: 5px; border-radius: 0px 0px 10px 10px; text-align: center; font-weight: bold; margin-bottom: 10px; border: 1px dashed #ef5777; font-size: 0.9rem; border-top: none; }
     .historial-container { display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding: 10px 0px; }
     .burbuja { min-width: 45px; height: 45px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 11px; color: white; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🦅 Aviator Elite PY v5.6")
+st.title("🦅 Aviator Elite PY v5.7")
 
 # 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 if 'ultimo_cambio_saldo' not in st.session_state: st.session_state.ultimo_cambio_saldo = 0.0
-# Hora inicial por defecto
-if 'hora_manual' not in st.session_state: st.session_state.hora_manual = "00:00"
+if 'hora_manual' not in st.session_state: 
+    py_tz = pytz.timezone('America/Asuncion')
+    st.session_state.hora_manual = datetime.now(py_tz).strftime("%H:%M")
 
 # --- SIDEBAR ---
 with st.sidebar:
@@ -43,8 +45,7 @@ with st.sidebar:
                         ["Estrategia del Hueco 10x o +", "Cazador de Rosas (10x)", "Estrategia 2x2", "Conservadora (1.50x)"], 
                         key="modo_juego")
     
-    # NUEVO: Input manual para la hora de la rosa
-    st.session_state.hora_manual = st.text_input("Editar Hora Última Rosa:", value=st.session_state.hora_manual)
+    st.session_state.hora_manual = st.text_input("Editar Hora Última Rosa (HH:MM):", value=st.session_state.hora_manual)
     
     div_ap = 25 if "10x" in modo or "Hueco" in modo else 8 if "2x2" in modo else 5
     apuesta_auto = max(2000, int(((saldo_in * (obj_pct/100)) / div_ap) // 1000) * 1000)
@@ -53,14 +54,26 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- FUNCIONES ---
+# --- LÓGICA DE TIEMPO ---
+def calcular_minutos_transcurridos():
+    try:
+        py_tz = pytz.timezone('America/Asuncion')
+        ahora = datetime.now(py_tz)
+        hora_rosa = datetime.strptime(st.session_state.hora_manual, "%H:%M")
+        hora_rosa = py_tz.localize(datetime(ahora.year, ahora.month, ahora.day, hora_rosa.hour, hora_rosa.minute))
+        
+        diferencia = ahora - hora_rosa
+        minutos = int(diferencia.total_seconds() / 60)
+        return minutos if minutos >= 0 else (minutos + 1440) # Ajuste por si cruza medianoche
+    except:
+        return "?"
+
+# --- REGISTRO ---
 def registrar_vuelo():
     if st.session_state.entrada_vuelo:
         try:
             vuelo_val = float(st.session_state.entrada_vuelo.replace(',', '.'))
             st.session_state.historial.append(vuelo_val)
-            
-            # Auto-captura si es rosa
             if vuelo_val >= 10.0:
                 py_tz = pytz.timezone('America/Asuncion')
                 st.session_state.hora_manual = datetime.now(py_tz).strftime("%H:%M")
@@ -74,25 +87,21 @@ def registrar_vuelo():
                     cambio_neto += (ap_real * target)
                 st.session_state.saldo_dinamico += cambio_neto
                 st.session_state.ultimo_cambio_saldo = cambio_neto
-            else:
-                st.session_state.ultimo_cambio_saldo = 0.0
         except: pass
         st.session_state.entrada_vuelo = ""
 
-# --- PANEL DE MÉTRICAS ---
-diferencia = st.session_state.saldo_dinamico - saldo_in
+# --- INTERFAZ ---
+diferencia_gs = st.session_state.saldo_dinamico - saldo_in
 c1, c2, c3 = st.columns(3)
 c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
-c2.metric("Ganancias", f"{int(max(0, diferencia)):,} Gs")
-c3.metric("Perdidas", f"{int(abs(min(0, diferencia))):,} Gs")
+c2.metric("Ganancias", f"{int(max(0, diferencia_gs)):,} Gs")
+c3.metric("Perdidas", f"{int(abs(min(0, diferencia_gs))):,} Gs")
 
-# --- LÓGICA DE HUECO ---
 v_desde_rosa = 0
 for v in reversed(st.session_state.historial):
     if v >= 10: break
     v_desde_rosa += 1
 
-# --- SEMÁFORO ---
 def motor_semaforo(h, modo_sel, hueco):
     if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
     if "Estrategia del Hueco" in modo_sel:
@@ -110,25 +119,26 @@ msg, bg, txt = motor_semaforo(st.session_state.historial, modo, v_desde_rosa)
 st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="radar-rosas">📡 RADAR ROSA: {v_desde_rosa} vuelos sin 10x+</div>', unsafe_allow_html=True)
 
-# VISUALIZACIÓN DEL HORARIO (Toma el valor del sidebar)
+# BLOQUE DE TIEMPO CON CRONÓMETRO
+minutos_pasados = calcular_minutos_transcurridos()
 st.markdown(f'<div class="time-display">🌸 ÚLTIMA ROSA: {st.session_state.hora_manual} hs</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="timer-display">⏱️ TIEMPO TRANSCURRIDO: {minutos_pasados} minutos</div>', unsafe_allow_html=True)
 
 st.markdown(f'<div class="apuesta-box">📢 APUESTA SUGERIDA: {apuesta_auto:,} Gs</div>', unsafe_allow_html=True)
 
 st.markdown("---")
 col_v, col_m, col_c = st.columns([2, 1, 1])
-with col_v: st.text_input("Resultado y ENTER:", key="entrada_vuelo", on_change=registrar_vuelo)
+with col_v: st.text_input("Resultado:", key="entrada_vuelo", on_change=registrar_vuelo)
 with col_m: st.number_input("Gs. Apostados:", value=float(apuesta_auto), step=1000.0, key="valor_apuesta_manual")
 with col_c: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 
-if st.button("⬅️ Deshacer Último Registro"):
+if st.button("⬅️ Deshacer"):
     if st.session_state.historial:
         st.session_state.historial.pop()
         st.session_state.saldo_dinamico -= st.session_state.ultimo_cambio_saldo
         st.session_state.ultimo_cambio_saldo = 0.0
         st.rerun()
 
-# HISTORIAL
 if st.session_state.historial:
     html_b = ""
     for val in reversed(st.session_state.historial[-30:]):

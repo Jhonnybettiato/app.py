@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v5.9", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v6.0", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -14,8 +14,6 @@ st.markdown("""
     .apuesta-box { background-color: #ffeb3b; color: #000000; padding: 15px; border-radius: 10px; text-align: center; font-weight: 900; font-size: 1.4rem; margin: 10px 0px; }
     .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; }
     .radar-rosas { background-color: #2d3436; color: #fd79a8; padding: 5px; border-radius: 5px; text-align: center; font-size: 0.9rem; margin-top: -10px; font-weight: bold; }
-    
-    /* Cajas de Tiempo */
     .time-container { display: flex; gap: 10px; margin: 10px 0px; }
     .time-card { flex: 1; background-color: #1e272e; padding: 10px; border-radius: 10px; text-align: center; border: 1px dashed #ef5777; }
     .time-card.giant { border-color: #f1c40f; }
@@ -23,14 +21,12 @@ st.markdown("""
     .time-value { font-size: 1.1rem; font-weight: bold; color: #ef5777; }
     .time-card.giant .time-value { color: #f1c40f; }
     .time-elapsed { font-size: 0.85rem; color: #00ff41; font-weight: bold; }
-
-    /* Historial Fijo */
     .historial-container { display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding: 15px 5px; background: #00000050; border-radius: 10px; }
     .burbuja { min-width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 12px; color: white; border: 2px solid #ffffff20; }
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🦅 Aviator Elite PY v5.9")
+st.title("🦅 Aviator Elite PY v6.0")
 
 # 2. Inicialización
 if 'historial' not in st.session_state: st.session_state.historial = []
@@ -78,14 +74,44 @@ def registrar_vuelo():
             elif v_val >= 10.0:
                 st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
             
-            # Contabilidad
             if st.session_state.check_apuesta:
                 ap_real = float(st.session_state.valor_apuesta_manual)
                 target = 10.0 if ("10x" in modo or "Hueco" in modo) else 2.0 if "2x2" in modo else 1.50
                 st.session_state.saldo_dinamico -= ap_real
-                if v_val > target: st.session_state.saldo_dinamico += (ap_real * target)
+                if v_val >= target: st.session_state.saldo_dinamico += (ap_real * target)
         except: pass
         st.session_state.entrada_vuelo = ""
+
+# --- LÓGICA DE ESTRATEGIAS (EL MOTOR) ---
+def motor_semaforo(h, modo_sel):
+    if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
+    
+    # 1. Estrategia del Hueco
+    if "Hueco" in modo_sel:
+        hueco = 0
+        for v in reversed(h):
+            if v >= 10: break
+            hueco += 1
+        if hueco >= 25: return f"💖 HUECO ACTIVO ({hueco} v)", "#e91e63", "white"
+        return f"⏳ CARGANDO HUECO ({hueco}/25)", "#2d3436", "white"
+    
+    # 2. Cazador de Rosas
+    if "Cazador" in modo_sel:
+        if h[-1] >= 10: return "🟢 ROSA RECIENTE", "#00ff41", "black"
+        return "🔴 BUSCANDO ROSA", "#ff3131", "white"
+    
+    # 3. Estrategia 2x2 (Dos bajos, señal para buscar el alto)
+    if "2x2" in modo_sel:
+        if h[-1] < 2.0 and h[-2] < 2.0: return "🟢 ENTRADA 2x2 DETECTADA", "#00ff41", "black"
+        if h[-1] < 2.0: return "🟡 ESPERANDO SEGUNDO BAJO", "#f1c40f", "black"
+        return "🔴 BUSCANDO PATRÓN 2x2", "#2d3436", "white"
+        
+    # 4. Conservadora
+    if "Conservadora" in modo_sel:
+        if h[-1] < 1.50: return "🟢 ENTRADA SEGURA (1.50x)", "#00ff41", "black"
+        return "🟡 ESPERANDO BAJO", "#f1c40f", "black"
+
+    return "🟢 SISTEMA LISTO", "#00ff41", "black"
 
 # --- INTERFAZ ---
 diferencia_gs = st.session_state.saldo_dinamico - saldo_in
@@ -94,24 +120,18 @@ c1.metric("Saldo Actual", f"{int(st.session_state.saldo_dinamico):,} Gs")
 c2.metric("Ganancias", f"{int(max(0, diferencia_gs)):,} Gs")
 c3.metric("Perdidas", f"{int(abs(min(0, diferencia_gs))):,} Gs")
 
-# SEMÁFORO Y RADAR
+# SEMÁFORO
+msg, bg, txt = motor_semaforo(st.session_state.historial, modo)
+st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)
+
+# RADAR
 v_desde_rosa = 0
 for v in reversed(st.session_state.historial):
     if v >= 10: break
     v_desde_rosa += 1
-
-def motor_semaforo(h, modo_sel, hueco):
-    if len(h) < 3: return "🟡 ANALIZANDO FLUJO", "#f1c40f", "black"
-    if "Hueco" in modo_sel:
-        if hueco >= 25: return f"💖 HUECO 10x ACTIVO ({hueco})", "#e91e63", "white"
-        return f"⏳ CARGANDO HUECO ({hueco}/25)", "#2d3436", "white"
-    return "🟢 BUSCANDO ENTRADA", "#00ff41", "black"
-
-msg, bg, txt = motor_semaforo(st.session_state.historial, modo, v_desde_rosa)
-st.markdown(f'<div class="semaforo" style="background-color:{bg}; color:{txt};">{msg}</div>', unsafe_allow_html=True)
 st.markdown(f'<div class="radar-rosas">📡 RADAR ROSA: {v_desde_rosa} vuelos sin 10x+</div>', unsafe_allow_html=True)
 
-# PANEL DE TIEMPOS
+# TIEMPOS
 def get_minutos(hora_str):
     if hora_str == "---": return "?"
     try:
@@ -146,7 +166,6 @@ with col_v: st.text_input("Resultado:", key="entrada_vuelo", on_change=registrar
 with col_m: st.number_input("Gs. Apostados:", value=float(apuesta_auto), step=1000.0, key="valor_apuesta_manual")
 with col_c: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 
-# HISTORIAL RECUPERADO
 st.write("### 📜 Historial de Vuelos")
 if st.session_state.historial:
     html_b = ""
@@ -154,8 +173,6 @@ if st.session_state.historial:
         color = "#3498db" if val < 2.0 else "#9b59b6" if val < 10.0 else "#e91e63"
         html_b += f'<div class="burbuja" style="background-color:{color};">{val:.2f}</div>'
     st.markdown(f'<div class="historial-container">{html_b}</div>', unsafe_allow_html=True)
-else:
-    st.info("Esperando primer registro para mostrar historial...")
 
 if st.button("⬅️ Deshacer"):
     if st.session_state.historial:

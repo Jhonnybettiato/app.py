@@ -3,9 +3,9 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v8.5", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v8.6", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS BLACK EDITION CON SEMÁFORO ---
+# --- DISEÑO CSS BLACK EDITION ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
@@ -19,8 +19,6 @@ st.markdown("""
     }
     .label-elite { color: #FFFFFF !important; font-weight: 800; text-transform: uppercase; font-size: 0.8rem; }
     .valor-elite { color: #FFFFFF !important; font-size: 2.2rem; font-weight: 900; }
-    
-    /* ESTILO RELOJES */
     .time-box {
         background: #121212;
         padding: 15px;
@@ -29,24 +27,14 @@ st.markdown("""
         text-align: center;
     }
     .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1.1rem; margin-top: 5px; }
-    
-    /* SEMÁFORO DINÁMICO */
     .semaforo-box {
         padding: 30px;
         border-radius: 20px;
         text-align: center;
         border: 4px solid rgba(255,255,255,0.1);
         margin-top: 10px;
-        transition: 0.5s;
     }
-    .semaforo-texto {
-        font-size: 2rem;
-        font-weight: 900;
-        color: white;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.5);
-        margin: 0;
-    }
-    
+    .semaforo-texto { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
     .burbuja { min-width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; color: white; border: 2px solid rgba(255,255,255,0.1); }
     </style>
     """, unsafe_allow_html=True)
@@ -56,72 +44,74 @@ py_tz = pytz.timezone('America/Asuncion')
 now_str = datetime.now(py_tz).strftime("%H:%M")
 
 if 'historial' not in st.session_state: st.session_state.historial = []
+if 'registro_saldos' not in st.session_state: st.session_state.registro_saldos = [] # Para deshacer
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
-# --- LÓGICA DEL SEMÁFORO DE 3 ESTADOS ---
+# --- FUNCIONES CORE ---
 def obtener_semaforo():
-    if len(st.session_state.historial) < 3:
-        return "ESPERANDO DATOS", "#7f8c8d" # Gris
-    
+    if len(st.session_state.historial) < 3: return "ESPERANDO DATOS", "#7f8c8d"
     hist = st.session_state.historial
     est = st.session_state.modo_sel
     
-    # LÓGICA PARA ESTRATEGIAS DE 10X (Cazador y Hueco)
     if "10x" in est:
         rondas_sin_10x = 0
-        distancia_ultimo_10x = 0
+        distancia = 0
         for i, v in enumerate(reversed(hist)):
             if v >= 10:
-                if rondas_sin_10x == 0: distancia_ultimo_10x = i
+                if rondas_sin_10x == 0: distancia = i
                 break
             rondas_sin_10x += 1
-            
-        # VERDE: Si es Hueco (25+) o Cazadora detecta racha (distancia 2-10)
-        if ("Hueco" in est and rondas_sin_10x >= 25) or ("Cazador" in est and 2 <= distancia_ultimo_10x <= 10):
+        if ("Hueco" in est and rondas_sin_10x >= 25) or ("Cazador" in est and 2 <= distancia <= 10):
             return "🟢 APUESTE AHORA", "#27ae60"
-        # AMARILLO: Si se acerca al objetivo
-        elif ("Hueco" in est and 18 <= rondas_sin_10x < 25) or ("Cazador" in est and distancia_ultimo_10x > 10):
+        elif ("Hueco" in est and 18 <= rondas_sin_10x < 25) or ("Cazador" in est and distancia > 10):
             return "🟡 ANALIZANDO...", "#f1c40f"
-        # ROJO: Riesgo alto
-        else:
-            return "🔴 NO ENTRAR", "#c0392b"
-
-    # LÓGICA PARA 1.50x y 2x2
+        return "🔴 NO ENTRAR", "#c0392b"
     else:
-        if (hist[-1] >= 1.5): return "🟢 APUESTE AHORA", "#27ae60"
+        if hist[-1] >= 1.5: return "🟢 APUESTE AHORA", "#27ae60"
         return "🔴 NO ENTRAR", "#c0392b"
 
-# --- FUNCIONES DE SOPORTE ---
-def get_minutos(hora_str):
-    if hora_str == "---" or not hora_str or ":" not in hora_str: return "?"
-    try:
-        ahora = datetime.now(py_tz)
-        h_r = py_tz.localize(datetime.strptime(hora_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day))
-        diff = int((ahora - h_r).total_seconds() / 60)
-        return diff if diff >= 0 else (diff + 1440)
-    except: return "?"
+def deshacer_ultimo():
+    if st.session_state.historial:
+        st.session_state.historial.pop() # Quita el último número
+        if st.session_state.registro_saldos:
+            ultimo_impacto = st.session_state.registro_saldos.pop()
+            st.session_state.saldo_dinamico -= ultimo_impacto # Revierte el dinero
 
 def registrar_valor():
     if st.session_state.entrada_manual:
         try:
             v_val = float(str(st.session_state.entrada_manual).replace(',', '.'))
             st.session_state.historial.append(v_val)
-            nueva_hora = datetime.now(py_tz).strftime("%H:%M")
-            if v_val >= 100.0:
-                st.session_state.h_100x_input = nueva_hora
-                st.session_state.h_10x_input = nueva_hora
-            elif v_val >= 10.0:
-                st.session_state.h_10x_input = nueva_hora
+            
+            # Impacto en Saldo
+            impacto = 0
             if st.session_state.check_apuesta:
-                apuesta = float(st.session_state.valor_apuesta_manual)
+                ap = float(st.session_state.valor_apuesta_manual)
                 est = st.session_state.modo_sel
-                target = 1.5 if "1.50x" in est else 2.0 if "2x2" in est else 10.0
-                st.session_state.saldo_dinamico += (apuesta * (target - 1)) if v_val >= target else -apuesta
+                target = 1.5 if "1.5" in est else 2.0 if "2x2" in est else 10.0
+                impacto = (ap * (target - 1)) if v_val >= target else -ap
+            
+            st.session_state.saldo_dinamico += impacto
+            st.session_state.registro_saldos.append(impacto)
+            
+            # Relojes
+            nueva_h = datetime.now(py_tz).strftime("%H:%M")
+            if v_val >= 100: st.session_state.h_100x_input = nueva_h; st.session_state.h_10x_input = nueva_h
+            elif v_val >= 10: st.session_state.h_10x_input = nueva_h
         except: pass
         st.session_state.entrada_manual = ""
+
+def get_minutos(hora_str):
+    if "---" in hora_str or ":" not in hora_str: return "?"
+    try:
+        ahora = datetime.now(py_tz)
+        h_r = py_tz.localize(datetime.strptime(hora_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day))
+        diff = int((ahora - h_r).total_seconds() / 60)
+        return diff if diff >= 0 else (diff + 1440)
+    except: return "?"
 
 # --- INTERFAZ ---
 with st.sidebar:
@@ -131,11 +121,11 @@ with st.sidebar:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
     st.session_state.modo_sel = st.selectbox("Estrategia:", ["Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
-    if st.button("🔄 Reiniciar App"):
+    if st.button("🔄 Reiniciar Todo"):
         st.session_state.clear()
         st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.5</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.6</h1>", unsafe_allow_html=True)
 
 # FILA 1: MÉTRICAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
@@ -155,21 +145,20 @@ with t2:
     st.text_input("H100", key="h_100x_input", label_visibility="collapsed")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 
-# --- FILA 3: EL NUEVO SEMÁFORO VISUAL ---
+# FILA 3: SEMÁFORO
 txt_sem, col_sem = obtener_semaforo()
-st.markdown(f"""
-    <div class="semaforo-box" style="background-color:{col_sem};">
-        <p class="label-elite" style="margin-bottom:10px; font-size:1rem;">INDICADOR DE ENTRADA</p>
-        <p class="semaforo-texto">{txt_sem}</p>
-    </div>
-    """, unsafe_allow_html=True)
+st.markdown(f'<div class="semaforo-box" style="background-color:{col_sem};"><p class="semaforo-texto">{txt_sem}</p></div>', unsafe_allow_html=True)
 
-# FILA 4: ENTRADAS
+# FILA 4: ENTRADAS Y DESHACER
 st.markdown("<br>", unsafe_allow_html=True)
-col_in, col_ap, col_ck = st.columns([2, 1, 1])
-with col_in: st.text_input("VALOR DEL VUELO (ENTER):", key="entrada_manual", on_change=registrar_valor)
-with col_ap: st.number_input("APUESTA Gs:", value=2000, step=1000, key="valor_apuesta_manual")
+col_in, col_ap, col_ck, col_undo = st.columns([2, 1, 1, 1])
+with col_in: st.text_input("VUELO:", key="entrada_manual", on_change=registrar_valor)
+with col_ap: st.number_input("APUESTA:", value=2000, step=1000, key="valor_apuesta_manual")
 with col_ck: st.write("##"); st.checkbox("¿APOSTÉ?", key="check_apuesta")
+with col_undo: st.write("##"); 
+if st.button("🔙 DESHACER"): 
+    deshacer_ultimo()
+    st.rerun()
 
 # HISTORIAL
 if st.session_state.historial:

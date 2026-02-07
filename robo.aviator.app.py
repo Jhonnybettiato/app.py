@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v8.9", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v9.0", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -26,7 +26,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización de Sesión
+# 2. Inicialización
 py_tz = pytz.timezone('America/Asuncion')
 now_str = datetime.now(py_tz).strftime("%H:%M")
 
@@ -37,16 +37,44 @@ if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = Tru
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
-# --- FUNCIONES CORE ---
-def get_minutos(hora_str):
-    if "---" in hora_str or ":" not in hora_str or not hora_str: return "?"
-    try:
-        ahora = datetime.now(py_tz)
-        h_r = py_tz.localize(datetime.strptime(hora_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day))
-        diff = int((ahora - h_r).total_seconds() / 60)
-        return diff if diff >= 0 else (diff + 1440)
-    except: return "?"
+# --- MOTOR DE ESTRATEGIAS v9.0 ---
+def obtener_semaforo():
+    if len(st.session_state.historial) < 4: return "ESPERANDO DATOS", "#333"
+    hist = st.session_state.historial
+    est = st.session_state.modo_sel
+    
+    # --- NUEVA: ESTRATEGIA ESPEJO (GEMELOS) ---
+    if "Espejo" in est:
+        # Detecta Rosa -> Azul -> Azul -> Rosa... y avisa para el tercer Rosa
+        ultimos_4 = hist[-4:] # Miramos las últimas 4 rondas
+        rosas = sum(1 for v in ultimos_4 if v >= 10)
+        azules = sum(1 for v in ultimos_4 if v < 2)
+        
+        if rosas >= 2 and azules >= 1:
+            return "🟢 ESPEJO DETECTADO", "#8e44ad" # Violeta para Espejo
+        elif rosas == 1:
+            return "🟡 BUSCANDO PAR", "#f1c40f"
+        return "🔴 NO HAY REFLEJO", "#c0392b"
 
+    # --- CAZADOR 10X ---
+    elif "Cazador" in est:
+        dist = next((i for i, v in enumerate(reversed(hist)) if v >= 10), 99)
+        if 2 <= dist <= 10: return "🟢 APUESTE AHORA", "#27ae60"
+        return "🔴 NO ENTRAR", "#c0392b"
+
+    # --- HUECO 10X+ ---
+    elif "Hueco" in est:
+        sin_rosa = 0
+        for v in reversed(hist):
+            if v >= 10: break
+            sin_rosa += 1
+        if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
+        if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
+        return "🔴 NO ENTRAR", "#c0392b"
+
+    return "🔴 ESPERE", "#c0392b"
+
+# --- FUNCIONES DE SOPORTE ---
 def registrar_valor():
     if st.session_state.entrada_manual:
         try:
@@ -55,47 +83,32 @@ def registrar_valor():
             if st.session_state.check_apuesta:
                 ap = float(st.session_state.valor_apuesta_manual)
                 est = st.session_state.modo_sel
-                target = 1.5 if "1.5" in est else 2.0 if "2x2" in est else 10.0
+                target = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else 2.0
                 impacto = (ap * (target - 1)) if v_val >= target else -float(ap)
             
             st.session_state.historial.append(v_val)
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
             
-            # Actualizar relojes automáticamente
             nueva_h = datetime.now(py_tz).strftime("%H:%M")
-            if v_val >= 100: 
-                st.session_state.h_100x_input = nueva_h
-                st.session_state.h_10x_input = nueva_h
-            elif v_val >= 10: 
-                st.session_state.h_10x_input = nueva_h
+            if v_val >= 100: st.session_state.h_100x_input = nueva_h; st.session_state.h_10x_input = nueva_h
+            elif v_val >= 10: st.session_state.h_10x_input = nueva_h
         except: pass
         st.session_state.entrada_manual = ""
 
 def deshacer_accion():
     if st.session_state.historial:
-        ultimo_impacto = st.session_state.registro_saldos.pop()
-        st.session_state.saldo_dinamico -= ultimo_impacto
+        st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
         st.session_state.historial.pop()
 
-def obtener_semaforo():
-    if len(st.session_state.historial) < 2: return "ESPERANDO DATOS", "#333"
-    hist = st.session_state.historial
-    est = st.session_state.modo_sel
-    if "10x" in est:
-        rondas_sin = 0
-        dist = 0
-        for i, v in enumerate(reversed(hist)):
-            if v >= 10:
-                if rondas_sin == 0: dist = i
-                break
-            rondas_sin += 1
-        if ("Hueco" in est and rondas_sin >= 25) or ("Cazador" in est and 2 <= dist <= 10):
-            return "🟢 APUESTE AHORA", "#27ae60"
-        elif ("Hueco" in est and 18 <= rondas_sin < 25) or ("Cazador" in est and dist > 10):
-            return "🟡 ANALIZANDO...", "#f1c40f"
-        return "🔴 NO ENTRAR", "#c0392b"
-    return ("🟢 APUESTE" if hist[-1] >= 1.5 else "🔴 ESPERE"), ("#27ae60" if hist[-1] >= 1.5 else "#c0392b")
+def get_minutos(hora_str):
+    if "---" in hora_str or ":" not in hora_str: return "?"
+    try:
+        ahora = datetime.now(py_tz)
+        h_r = py_tz.localize(datetime.strptime(hora_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day))
+        diff = int((ahora - h_r).total_seconds() / 60)
+        return diff if diff >= 0 else (diff + 1440)
+    except: return "?"
 
 # --- INTERFAZ ---
 with st.sidebar:
@@ -104,11 +117,15 @@ with st.sidebar:
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
-    st.session_state.modo_sel = st.selectbox("Estrategia:", ["Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
+    
+    # LISTA DE 5 ESTRATEGIAS
+    st.session_state.modo_sel = st.selectbox("Estrategia:", 
+        ["Espejo Gemelo (10x)", "Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
+    
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear(); st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.9</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.0</h1>", unsafe_allow_html=True)
 
 # FILA 1: MÉTRICAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
@@ -117,14 +134,14 @@ with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p
 with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# FILA 2: RELOJES (RESTAURADOS)
+# FILA 2: RELOJES
 t1, t2 = st.columns(2)
 with t1:
-    st.markdown('<div class="elite-card" style="border:1px solid #fff;"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
+    st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
     st.text_input("H10", key="h_10x_input", label_visibility="collapsed")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
 with t2:
-    st.markdown('<div class="elite-card" style="border:1px solid #fff;"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
+    st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
     st.text_input("H100", key="h_100x_input", label_visibility="collapsed")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 
@@ -143,4 +160,4 @@ with col_undo: st.write("##"); st.button("🔙 DESHACER", on_click=deshacer_acci
 # HISTORIAL
 if st.session_state.historial:
     h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-10:])])
-    st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:15px; background:#111; border-radius:15px; margin-top:20px; border:1px solid #333;">{h_html}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:15px; background:#111; border-radius:15px; margin-top:20px;">{h_html}</div>', unsafe_allow_html=True)

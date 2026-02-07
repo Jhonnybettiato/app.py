@@ -4,7 +4,7 @@ import pytz
 import re
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v9.2.3", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v9.2.4", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -22,7 +22,7 @@ st.markdown("""
     .rosa-item {
         background-color: #1a1a1a; border-left: 5px solid #e91e63;
         padding: 10px; margin-bottom: 5px; border-radius: 5px;
-        display: flex; justify-content: space-between; color: white;
+        display: flex; justify-content: space-between; color: white; font-family: monospace;
     }
     .burbuja { 
         min-width: 65px; height: 60px; border-radius: 30px; 
@@ -32,13 +32,14 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización
+# 2. Inicialización de Estados
 py_tz = pytz.timezone('America/Asuncion')
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'registro_saldos' not in st.session_state: st.session_state.registro_saldos = []
-if 'historial_rosas' not in st.session_state: st.session_state.historial_rosas = [] # NUEVA LISTA
+if 'historial_rosas' not in st.session_state: st.session_state.historial_rosas = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
+# Relojes iniciales
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = "---"
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
@@ -66,7 +67,7 @@ def get_minutos(hora_str):
         return diff if diff >= 0 else (diff + 1440)
     except: return "?"
 
-# --- INTERFAZ ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.header("🦅 CONFIG ELITE")
     saldo_in = st.number_input("Saldo Inicial Gs.", value=50000, step=5000)
@@ -76,7 +77,7 @@ with st.sidebar:
     st.session_state.modo_sel = st.selectbox("Estrategia:", ["Hueco 10x+", "Cazador (10x)"])
     if st.button("🔄 Reiniciar App"): st.session_state.clear(); st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.2.3</h1>", unsafe_allow_html=True)
+st.title("🦅 AVIATOR ELITE v9.2.4")
 
 # FILA 1: MÉTRICAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
@@ -85,40 +86,35 @@ with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p
 with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# --- NUEVA CAJA: HISTORIAL DE ROSAS ---
-with st.expander("📊 VER REGISTRO DE HORARIOS ROSA", expanded=True):
-    if st.session_state.historial_rosas:
-        for rosa in reversed(st.session_state.historial_rosas[-5:]): # Mostramos las últimas 5
-            st.markdown(f'''
-                <div class="rosa-item">
-                    <span>🌸 MULTIPLICADOR: <b>{rosa['valor']}x</b></span>
-                    <span>⏰ HORA: <b>{rosa['hora']}</b></span>
-                </div>
-            ''', unsafe_allow_html=True)
-    else:
-        st.info("Aún no se han registrado rosas en esta sesión.")
-
-# FILA 2: RELOJES
+# FILA 2: RELOJES (CONEXIÓN FIJADA)
 t1, t2, t3 = st.columns(3)
 with t1:
     st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
-    st.markdown(f'<h2 class="valor-elite" style="font-size:1.5rem;">{st.session_state.h_10x_input}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="valor-elite" style="font-size:1.8rem;">{st.session_state.h_10x_input}</h2>', unsafe_allow_html=True)
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
 with t2:
     st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
-    st.markdown(f'<h2 class="valor-elite" style="font-size:1.5rem;">{st.session_state.h_100x_input}</h2>', unsafe_allow_html=True)
+    st.markdown(f'<h2 class="valor-elite" style="font-size:1.8rem;">{st.session_state.h_100x_input}</h2>', unsafe_allow_html=True)
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 with t3:
     st.markdown(f'<div class="elite-card" style="border:1px solid #e91e63;"><p class="label-elite">📊 RONDAS SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{contar_rondas_desde_rosa()}</h2></div>', unsafe_allow_html=True)
 
-# FILA 3: SEMÁFORO
+# CAJA DE HISTORIAL ROSA
+with st.expander("📊 HISTORIAL DE HORARIOS ROSA", expanded=True):
+    if st.session_state.historial_rosas:
+        for rosa in reversed(st.session_state.historial_rosas[-5:]):
+            st.markdown(f'<div class="rosa-item"><span>🌸 <b>{rosa["valor"]}x</b></span><span>⏰ <b>{rosa["hora"]}</b></span></div>', unsafe_allow_html=True)
+    else:
+        st.write("Esperando primera rosa...")
+
+# SEMÁFORO
 txt_s, col_s = obtener_semaforo()
 st.markdown(f'<div class="semaforo-box" style="background-color:{col_s};"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 
-# FILA 4: REGISTRO
+# REGISTRO
 with st.form("panel_registro", clear_on_submit=True):
     col_in, col_ap, col_ck, col_btn = st.columns([2, 1, 1, 1])
-    with col_in: valor_raw = st.text_input("VUELO:", placeholder="Escriba el valor")
+    with col_in: valor_raw = st.text_input("VUELO:", placeholder="Ej: 1.68")
     with col_ap: apuesta_manual = st.number_input("APUESTA:", value=2000, step=1000)
     with col_ck: st.write("##"); check_apuesta = st.checkbox("¿APOSTÉ?")
     with col_btn: st.write("##"); submit = st.form_submit_button("REGISTRAR")
@@ -127,8 +123,9 @@ with st.form("panel_registro", clear_on_submit=True):
         try:
             clean_val = re.sub(r'[^0-9.,]', '', valor_raw).replace(',', '.')
             v_val = float(clean_val)
-            impacto = 0.0
             
+            # Procesar saldo
+            impacto = 0.0
             if check_apuesta:
                 t = 10.0 if "10x" in st.session_state.modo_sel else 2.0
                 impacto = (apuesta_manual * (t - 1)) if v_val >= t else -float(apuesta_manual)
@@ -137,12 +134,16 @@ with st.form("panel_registro", clear_on_submit=True):
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
             
-            # LÓGICA DE ROSAS Y HORARIOS
-            ahora = datetime.now(py_tz).strftime("%H:%M")
+            # --- CORRECCIÓN DE REGISTRO DE HORARIOS ---
             if v_val >= 10:
+                ahora = datetime.now(py_tz).strftime("%H:%M")
+                # 1. Actualizar el reloj de 10x
                 st.session_state.h_10x_input = ahora
-                st.session_state.historial_rosas.append({"valor": v_val, "hora": ahora}) # Guardar en la nueva caja
-                if v_val >= 100: st.session_state.h_100x_input = ahora
+                # 2. Guardar en la lista del historial rosa
+                st.session_state.historial_rosas.append({"valor": v_val, "hora": ahora})
+                # 3. Si es mayor a 100, actualizar reloj 100x
+                if v_val >= 100:
+                    st.session_state.h_100x_input = ahora
             
             st.rerun()
         except: pass
@@ -158,4 +159,4 @@ if st.button("🔙 DESHACER ÚLTIMA"):
 # BURBUJAS
 if st.session_state.historial:
     h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-12:])])
-    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:15px; border: 1px solid #333;">{h_html}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:15px; border: 1px solid #333; margin-top:10px;">{h_html}</div>', unsafe_allow_html=True)

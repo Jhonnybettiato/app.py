@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v7.0", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v7.1", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -45,7 +45,7 @@ now_str = datetime.now(py_tz).strftime("%H:%M")
 if 'hora_10x' not in st.session_state: st.session_state.hora_10x = now_str
 if 'hora_100x' not in st.session_state: st.session_state.hora_100x = "---"
 
-# --- FUNCIONES ---
+# --- REVISIÓN DE ESTRATEGIAS (Lógica v7.1) ---
 def registrar_valor(valor_input=None):
     valor_raw = valor_input if valor_input is not None else st.session_state.entrada_manual
     impacto_saldo = 0.0
@@ -61,25 +61,26 @@ def registrar_valor(valor_input=None):
             elif v_val >= 10.0:
                 st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
             
-            # LÓGICA DE SALDO CORREGIDA v7.0
+            # --- CÁLCULO DE APUESTA SEGÚN ESTRATEGIA ---
             if st.session_state.check_apuesta:
                 ap_real = float(st.session_state.valor_apuesta_manual)
-                
-                # Definición robusta de target
                 modo = st.session_state.modo_sel
+                
+                # Definición de Objetivo (Target)
                 if "1.50x" in modo:
                     target = 1.50
                 elif "2x2" in modo:
                     target = 2.0
-                else:
+                else: # Cubre "Cazador de Rosas" y "Hueco"
                     target = 10.0
                 
-                res = -ap_real
+                # Ejecución del pago
+                resultado_ronda = -ap_real # Se descuenta la apuesta
                 if v_val >= target:
-                    res += (ap_real * target)
+                    resultado_ronda += (ap_real * target) # Se suma el premio
                 
-                st.session_state.saldo_dinamico += res
-                impacto_saldo = res
+                st.session_state.saldo_dinamico += resultado_ronda
+                impacto_saldo = resultado_ronda
             
             st.session_state.transacciones.append(impacto_saldo)
         except: pass
@@ -109,12 +110,11 @@ with st.sidebar:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
     
-    # Selector de Estrategia
-    st.session_state.modo_sel = st.selectbox("Estrategia:", [
-        "Estrategia del Hueco 10x o +", 
-        "Cazador de Rosas (10x)", 
+    st.session_state.modo_sel = st.selectbox("Estrategia activa:", [
+        "Conservadora (1.50x)", 
         "Estrategia 2x2", 
-        "Conservadora (1.50x)"
+        "Cazador de Rosas (10x)",
+        "Estrategia del Hueco 10x o +"
     ])
     
     st.markdown("---")
@@ -126,7 +126,7 @@ with st.sidebar:
         st.rerun()
 
 # --- INTERFAZ ---
-st.title("🦅 Aviator Elite PY v7.0")
+st.title("🦅 Aviator Elite PY v7.1")
 
 ganancia_actual = st.session_state.saldo_dinamico - saldo_in
 m1, m2, m3 = st.columns(3)
@@ -142,7 +142,7 @@ for v in reversed(st.session_state.historial):
 bg_sem = "#e91e63" if hueco >= 25 else "#2d3436"
 st.markdown(f'<div class="semaforo" style="background-color:{bg_sem}; color:white;">{"💖 HUECO ACTIVO" if hueco >= 25 else f"⏳ CARGANDO ({hueco}/25)"}</div>', unsafe_allow_html=True)
 
-# Tiempos Brillantes
+# Tiempos
 st.markdown(f"""
     <div class="time-container">
         <div class="time-card"><div class="time-label">🌸 Última 10x</div><div class="val-rosa">{st.session_state.hora_10x} hs</div><div style="color:#00ff41;font-weight:bold;">⏱️ {get_minutos(st.session_state.hora_10x)} min</div></div>

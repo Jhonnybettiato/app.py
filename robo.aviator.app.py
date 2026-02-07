@@ -3,16 +3,17 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v7.4", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v7.5", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS PREMIUM WHITE (Corregido) ---
+# --- DISEÑO CSS EFECTO NEÓN BLANCO ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
     
-    .valor-blanco { 
+    /* VALORES CON EFECTO ENCENDIDO */
+    .brillo-neon { 
         color: #FFFFFF !important; 
-        text-shadow: 0px 0px 12px rgba(255,255,255,0.4);
+        text-shadow: 0px 0px 15px rgba(255,255,255,0.8), 0px 0px 5px rgba(255,255,255,1);
         margin: 0; 
         font-weight: 900; 
     }
@@ -22,14 +23,15 @@ st.markdown("""
         padding: 20px; 
         border-radius: 12px; 
         text-align: center; 
-        border: 1px solid #374151;
+        border: 1px solid #4b5563;
         margin-bottom: 10px;
     }
-    .card-saldo { border: 2px solid #FFFFFF !important; box-shadow: 0px 0px 15px rgba(255,255,255,0.1); }
+    .card-saldo { border: 2px solid #FFFFFF !important; }
     
     .metric-card h2 { font-size: 2.6rem; }
-    .metric-card p { margin: 0; color: #bdc3c7; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+    .metric-card p { margin: 0; color: #bdc3c7; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; }
     
+    /* RELOJES CON MÁXIMO BRILLO */
     .time-container { display: flex; gap: 10px; margin: 10px 0px; }
     .time-card { 
         flex: 1; 
@@ -37,12 +39,12 @@ st.markdown("""
         padding: 15px; 
         border-radius: 10px; 
         text-align: center; 
-        border: 1px solid #ffffff40; 
+        border: 2px solid #FFFFFF; /* Borde sólido para más luz */
     }
-    .val-tiempo { font-size: 2rem; }
-    .time-elapsed { font-size: 1rem; color: #00ff41; font-weight: bold; margin-top: 5px; }
+    .val-tiempo { font-size: 2.2rem; }
+    .time-elapsed { font-size: 1.1rem; color: #00ff41; font-weight: bold; margin-top: 5px; text-shadow: 0px 0px 5px rgba(0,255,65,0.5); }
 
-    .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; border: 1px solid rgba(255,255,255,0.1); }
+    .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; border: 1px solid rgba(255,255,255,0.2); }
     .historial-container { display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding: 15px 5px; background: #00000050; border-radius: 10px; }
     .burbuja { min-width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; color: white; border: 2px solid #ffffff20; }
     </style>
@@ -120,15 +122,16 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-# --- INTERFAZ ---
-st.title("🦅 Aviator Elite PY v7.4")
+# --- PANEL PRINCIPAL ---
+st.title("🦅 Aviator Elite PY v7.5")
 
 ganancia_actual = st.session_state.saldo_dinamico - saldo_in
 m1, m2, m3 = st.columns(3)
-with m1: st.markdown(f'<div class="metric-card card-saldo"><p>Saldo Actual</p><h2 class="valor-blanco">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
-with m2: st.markdown(f'<div class="metric-card"><p>Ganancia</p><h2 class="valor-blanco">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
-with m3: st.markdown(f'<div class="metric-card"><p>Pérdida</p><h2 class="valor-blanco">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
+with m1: st.markdown(f'<div class="metric-card card-saldo"><p>Saldo Actual</p><h2 class="brillo-neon">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
+with m2: st.markdown(f'<div class="metric-card"><p>Ganancia</p><h2 class="brillo-neon">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
+with m3: st.markdown(f'<div class="metric-card"><p>Pérdida</p><h2 class="brillo-neon">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
 
+# Semáforo
 hueco = 0
 for v in reversed(st.session_state.historial):
     if v >= 10: break
@@ -136,16 +139,17 @@ for v in reversed(st.session_state.historial):
 bg_sem = "#e91e63" if hueco >= 25 else "#2d3436"
 st.markdown(f'<div class="semaforo" style="background-color:{bg_sem}; color:white;">{"💖 HUECO ACTIVO" if hueco >= 25 else f"⏳ CARGANDO ({hueco}/25)"}</div>', unsafe_allow_html=True)
 
+# RELOJES RE-ENCENDIDOS (NEÓN)
 st.markdown(f"""
     <div class="time-container">
         <div class="time-card">
             <div class="time-label">🌸 ÚLTIMA 10X</div>
-            <div class="valor-blanco val-tiempo">{st.session_state.hora_10x}</div>
+            <div class="brillo-neon val-tiempo">{st.session_state.hora_10x}</div>
             <div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_10x)} min</div>
         </div>
         <div class="time-card">
             <div class="time-label">👑 GIGANTE 100X</div>
-            <div class="valor-blanco val-tiempo">{st.session_state.hora_100x}</div>
+            <div class="brillo-neon val-tiempo">{st.session_state.hora_100x}</div>
             <div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_100x)} min</div>
         </div>
     </div>
@@ -160,13 +164,9 @@ if c4.button("🌸 10x", use_container_width=True): registrar_valor(10.0)
 
 st.markdown("---")
 col_txt, col_ap, col_ck = st.columns([2, 1, 1])
-with col_txt:
-    st.text_input("Manual + Enter:", key="entrada_manual", on_change=registrar_valor)
-with col_ap:
-    st.number_input("Apuesta Gs:", value=2000.0, step=1000.0, key="valor_apuesta_manual")
-with col_ck:
-    st.write("##")
-    st.checkbox("¿Aposté?", key="check_apuesta")
+with col_txt: st.text_input("Manual + Enter:", key="entrada_manual", on_change=registrar_valor)
+with col_ap: st.number_input("Apuesta Gs:", value=2000.0, step=1000.0, key="valor_apuesta_manual")
+with col_ck: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 
 if st.session_state.historial:
     html_b = ""
@@ -175,5 +175,4 @@ if st.session_state.historial:
         html_b += f'<div class="burbuja" style="background-color:{color};">{val:.2f}</div>'
     st.markdown(f'<div class="historial-container">{html_b}</div>', unsafe_allow_html=True)
 
-if st.button("⬅️ Borrar Último"):
-    deshacer_ultimo()
+if st.button("⬅️ Borrar Último"): deshacer_ultimo()

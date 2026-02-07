@@ -4,33 +4,36 @@ import pytz
 import re
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite v9.4.3", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite v9.4.4", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
     .elite-card { 
-        background-color: #121212; padding: 12px; border-radius: 15px; 
+        background-color: #121212; padding: 10px; border-radius: 12px; 
         text-align: center; margin-bottom: 5px; border: 1px solid #333;
     }
-    .label-elite { color: #888 !important; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; }
-    .valor-elite { color: #FFFFFF !important; font-size: 1.8rem; font-weight: 900; line-height: 1.1; }
-    .minutos-meta { color: #00ff41; font-weight: bold; font-size: 0.9rem; margin-top: 2px; }
-    .semaforo-box { padding: 25px; border-radius: 15px; text-align: center; margin-top: 10px; border: 3px solid transparent; }
+    .label-elite { color: #888 !important; font-weight: 800; text-transform: uppercase; font-size: 0.65rem; }
+    .valor-elite { color: #FFFFFF !important; font-size: 1.6rem; font-weight: 900; line-height: 1.1; }
+    .minutos-meta { color: #00ff41; font-weight: bold; font-size: 0.85rem; }
+    .semaforo-box { padding: 20px; border-radius: 15px; text-align: center; margin-top: 5px; border: 2px solid transparent; }
     .semaforo-texto { font-size: 1.8rem; font-weight: 900; color: white; margin: 0; }
     .burbuja { 
-        min-width: 60px; height: 55px; border-radius: 20px; 
+        min-width: 55px; height: 50px; border-radius: 20px; 
         display: flex; align-items: center; justify-content: center; 
-        font-weight: 900; color: white; margin-right: 5px; font-size: 0.85rem;
+        font-weight: 900; color: white; margin-right: 4px; font-size: 0.8rem;
     }
     label { color: white !important; font-size: 0.8rem !important; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización
+# 2. Inicialización de Estados
 py_tz = pytz.timezone('America/Asuncion')
 if 'historial' not in st.session_state: st.session_state.historial = []
+if 'registro_saldos' not in st.session_state: st.session_state.registro_saldos = []
+if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
+if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = "00:00"
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
@@ -53,52 +56,74 @@ def calc_sin_rosa():
         c += 1
     return c
 
-# --- UI SUPERIOR ---
-st.title("🦅 ELITE v9.4.3 - ESTRATEGIA 30/40")
+# --- BARRA LATERAL ---
+with st.sidebar:
+    st.header("🦅 CONFIG")
+    saldo_in = st.number_input("Saldo Inicial Gs.", value=50000, step=5000)
+    if st.session_state.primer_inicio:
+        st.session_state.saldo_dinamico = float(saldo_in)
+        st.session_state.primer_inicio = False
+    if st.button("🔄 Reiniciar App"): st.session_state.clear(); st.rerun()
+
+# --- UI PRINCIPAL ---
+st.title("🦅 AVIATOR ELITE v9.4.4")
 
 sin_rosa_actual = calc_sin_rosa()
+ganancia_neta = st.session_state.saldo_dinamico - saldo_in
 
-# 1. BLOQUE DE TIEMPOS (Restaurado)
-t1, t2, t3 = st.columns(3)
-with t1:
+# FILA 1: DINERO Y TIEMPO (Tablero de Control)
+c1, c2, c3, c4 = st.columns(4)
+with c1: 
+    st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO ACTUAL</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
+with c2: 
+    color_gan = "#00ff41" if ganancia_neta >= 0 else "#ff3131"
+    st.markdown(f'<div class="elite-card"><p class="label-elite">GANANCIA</p><h2 class="valor-elite" style="color:{color_gan}!important;">{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
+with c3:
     st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
-    st.session_state.h_10x_input = st.text_input("H10", value=st.session_state.h_10x_input, label_visibility="collapsed")
+    st.session_state.h_10x_input = st.text_input("H10", value=st.session_state.h_10x_input, label_visibility="collapsed", key="in_h10")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
-with t2:
+with c4:
     st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
-    st.session_state.h_100x_input = st.text_input("H100", value=st.session_state.h_100x_input, label_visibility="collapsed")
+    st.session_state.h_100x_input = st.text_input("H100", value=st.session_state.h_100x_input, label_visibility="collapsed", key="in_h100")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
-with t3:
-    st.markdown(f'<div class="elite-card"><p class="label-elite">📊 SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{sin_rosa_actual}</h2></div>', unsafe_allow_html=True)
 
-# 2. SEMÁFORO (Estrategia 30/40)
-if sin_rosa_actual >= 40:
-    txt_s, col_s, shadow = "🛑 STOP LOSS - PARAR APUESTAS", "#ff3131", "0 0 30px #ff3131"
-elif sin_rosa_actual >= 30:
-    txt_s, col_s, shadow = "🔥 ¡ENTRAR AHORA! (META 30)", "#27ae60", "0 0 20px #2ecc71"
-elif sin_rosa_actual >= 25:
-    txt_s, col_s, shadow = "🟡 PREPARAR (ZONA 25+)", "#f39c12", "none"
-else:
-    txt_s, col_s, shadow = "🔴 ESPERAR", "#c0392b", "none"
+# FILA 2: CONTADOR Y SEMÁFORO
+s1, s2 = st.columns([1, 3])
+with s1:
+    st.markdown(f'<div class="elite-card" style="height:115px;"><p class="label-elite">SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important; font-size:3rem;">{sin_rosa_actual}</h2></div>', unsafe_allow_html=True)
+with s2:
+    if sin_rosa_actual >= 40:
+        txt_s, col_s, shadow = "🛑 STOP LOSS - PARAR", "#ff3131", "0 0 25px #ff3131"
+    elif sin_rosa_actual >= 30:
+        txt_s, col_s, shadow = "🔥 ENTRAR AHORA (META 30)", "#27ae60", "0 0 20px #2ecc71"
+    elif sin_rosa_actual >= 25:
+        txt_s, col_s, shadow = "🟡 PREPARAR (ZONA 25+)", "#f39c12", "none"
+    else:
+        txt_s, col_s, shadow = "🔴 ESPERAR", "#c0392b", "none"
+    
+    st.markdown(f'<div class="semaforo-box" style="background-color:{col_s}; box-shadow:{shadow};"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 
-st.markdown(f'''
-    <div class="semaforo-box" style="background-color:{col_s}; box-shadow:{shadow}; border-color:{'white' if sin_rosa_actual >= 30 else 'transparent'};">
-        <p class="semaforo-texto">{txt_s}</p>
-    </div>
-    ''', unsafe_allow_html=True)
-
-# --- 🚀 REGISTRO Y HISTORIAL ---
+# --- 🚀 REGISTRO ---
 with st.container():
-    with st.form("registro_final", clear_on_submit=True):
-        f1, f2, f3 = st.columns([2, 1, 1])
+    with st.form("registro_v944", clear_on_submit=True):
+        f1, f2, f3, f4 = st.columns([2, 1, 1, 1])
         with f1: v_vuelo = st.text_input("VALOR DEL VUELO")
-        with f2: a_vuelo = st.number_input("APUESTA", value=2000, step=1000)
-        with f3: st.write("##"); btn = st.form_submit_button("REGISTRAR")
+        with f2: a_vuelo = st.number_input("APUESTA Gs.", value=2000, step=1000)
+        with f3: st.write("##"); check_ap = st.checkbox("¿APOSTÉ?")
+        with f4: st.write("##"); btn = st.form_submit_button("REGISTRAR")
 
         if btn and v_vuelo:
             try:
                 val = float(v_vuelo.replace(',', '.'))
+                # Cálculo de saldo
+                impacto = 0.0
+                if check_ap:
+                    impacto = (a_vuelo * 9) if val >= 10 else -float(a_vuelo)
+                
                 st.session_state.historial.append(val)
+                st.session_state.registro_saldos.append(impacto)
+                st.session_state.saldo_dinamico += impacto
+                
                 if val >= 10:
                     ahora = datetime.now(py_tz).strftime("%H:%M")
                     st.session_state.h_10x_input = ahora
@@ -113,5 +138,6 @@ if st.session_state.historial:
 
 if st.button("🔙 BORRAR ÚLTIMA", use_container_width=True):
     if st.session_state.historial:
-        st.session_state.historial.pop()
+        v_pop = st.session_state.historial.pop()
+        st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
         st.rerun()

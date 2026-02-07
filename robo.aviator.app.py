@@ -3,14 +3,12 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v6.7", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v6.8", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS REFORZADO PARA VISIBILIDAD ---
+# --- DISEÑO CSS ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
-    
-    /* Tarjetas de métricas con colores VIVOS */
     .metric-card { 
         background-color: #1e272e; 
         padding: 20px; 
@@ -19,31 +17,9 @@ st.markdown("""
         border: 2px solid #374151;
         margin-bottom: 10px;
     }
-    /* SALDO ACTUAL: Blanco Puro y Brillante */
-    .saldo-brillante { 
-        color: #FFFFFF !important; 
-        text-shadow: 0px 0px 10px rgba(255,255,255,0.3);
-        margin: 0; 
-        font-size: 2.4rem; 
-        font-weight: 900; 
-    }
-    /* GANANCIA: Verde Neon */
-    .ganancia-viva { 
-        color: #00FF41 !important; 
-        text-shadow: 0px 0px 8px rgba(0,255,65,0.2);
-        margin: 0; 
-        font-size: 2.4rem; 
-        font-weight: 900; 
-    }
-    /* PÉRDIDA: Rojo Intenso */
-    .perdida-viva { 
-        color: #FF3131 !important; 
-        margin: 0; 
-        font-size: 2.4rem; 
-        font-weight: 900; 
-    }
-    
-    .metric-card p { margin: 0; color: #bdc3c7; font-size: 0.9rem; font-weight: bold; text-transform: uppercase; }
+    .saldo-brillante { color: #FFFFFF !important; text-shadow: 0px 0px 10px rgba(255,255,255,0.3); margin: 0; font-size: 2.4rem; font-weight: 900; }
+    .ganancia-viva { color: #00FF41 !important; text-shadow: 0px 0px 8px rgba(0,255,65,0.2); margin: 0; font-size: 2.4rem; font-weight: 900; }
+    .perdida-viva { color: #FF3131 !important; margin: 0; font-size: 2.4rem; font-weight: 900; }
     
     .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; border: 2px solid rgba(255,255,255,0.1); }
     .radar-rosas { background-color: #2d3436; color: #fd79a8; padding: 5px; border-radius: 5px; text-align: center; font-size: 0.9rem; margin-top: -10px; font-weight: bold; border: 1px solid #fd79a8; }
@@ -80,19 +56,30 @@ def registrar_valor(valor_input=None):
         try:
             v_val = float(str(valor_raw).replace(',', '.'))
             st.session_state.historial.append(v_val)
+            
+            # Tiempos
             if v_val >= 100.0:
                 st.session_state.hora_100x = datetime.now(py_tz).strftime("%H:%M")
                 st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
             elif v_val >= 10.0:
                 st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
             
+            # Lógica de Saldo según Estrategia
             if st.session_state.check_apuesta:
                 ap_real = float(st.session_state.valor_apuesta_manual)
-                target = 10.0 if "10x" in st.session_state.modo_sel else 2.0
+                
+                # Definir objetivo según el selector
+                if "1.50x" in st.session_state.modo_sel: target = 1.50
+                elif "2x2" in st.session_state.modo_sel: target = 2.0
+                else: target = 10.0 # Hueco o Rosa
+                
                 resultado_ronda = -ap_real
-                if v_val >= target: resultado_ronda += (ap_real * target)
+                if v_val >= target: 
+                    resultado_ronda += (ap_real * target)
+                
                 st.session_state.saldo_dinamico += resultado_ronda
                 impacto_saldo = resultado_ronda
+            
             st.session_state.transacciones.append(impacto_saldo)
         except: pass
         st.session_state.entrada_manual = ""
@@ -120,7 +107,15 @@ with st.sidebar:
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
-    st.session_state.modo_sel = st.selectbox("Estrategia:", ["Estrategia del Hueco 10x o +", "Cazador de Rosas (10x)", "Estrategia 2x2"])
+    
+    # REINSTALADA LA ESTRATEGIA 1.50x
+    st.session_state.modo_sel = st.selectbox("Estrategia:", [
+        "Estrategia del Hueco 10x o +", 
+        "Cazador de Rosas (10x)", 
+        "Estrategia 2x2", 
+        "Conservadora (1.50x)"
+    ])
+    
     st.markdown("---")
     st.session_state.hora_10x = st.text_input("Editar Hora 10x:", value=st.session_state.hora_10x)
     st.session_state.hora_100x = st.text_input("Editar Hora 100x:", value=st.session_state.hora_100x)
@@ -129,16 +124,13 @@ with st.sidebar:
         st.rerun()
 
 # --- INTERFAZ ---
-st.title("🦅 Aviator Elite PY v6.7")
+st.title("🦅 Aviator Elite PY v6.8")
 
 ganancia_actual = st.session_state.saldo_dinamico - saldo_in
 m1, m2, m3 = st.columns(3)
-with m1: 
-    st.markdown(f'<div class="metric-card" style="border-color:#FFFFFF;"><p>Saldo Actual</p><h2 class="saldo-brillante">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
-with m2: 
-    st.markdown(f'<div class="metric-card" style="border-color:#00FF41;"><p>Ganancia</p><h2 class="ganancia-viva">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
-with m3: 
-    st.markdown(f'<div class="metric-card" style="border-color:#FF3131;"><p>Pérdida</p><h2 class="perdida-viva">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
+with m1: st.markdown(f'<div class="metric-card" style="border-color:#FFFFFF;"><p>Saldo Actual</p><h2 class="saldo-brillante">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
+with m2: st.markdown(f'<div class="metric-card" style="border-color:#00FF41;"><p>Ganancia</p><h2 class="ganancia-viva">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
+with m3: st.markdown(f'<div class="metric-card" style="border-color:#FF3131;"><p>Pérdida</p><h2 class="perdida-viva">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
 
 # Semáforo
 hueco = 0
@@ -147,9 +139,8 @@ for v in reversed(st.session_state.historial):
     hueco += 1
 bg_sem = "#e91e63" if hueco >= 25 else "#2d3436"
 st.markdown(f'<div class="semaforo" style="background-color:{bg_sem}; color:white;">{"💖 HUECO ACTIVO" if hueco >= 25 else f"⏳ CARGANDO ({hueco}/25)"}</div>', unsafe_allow_html=True)
-st.markdown(f'<div class="radar-rosas">📡 RADAR ROSA: {hueco} vuelos sin 10x+</div>', unsafe_allow_html=True)
 
-# Tiempos
+# Relojes
 st.markdown(f"""
     <div class="time-container">
         <div class="time-card"><div class="time-label">🌸 10x</div><div class="time-value">{st.session_state.hora_10x}</div><div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_10x)}m</div></div>
@@ -171,7 +162,7 @@ with col_txt: st.text_input("Valor Manual + Enter:", key="entrada_manual", on_ch
 with col_ap: st.number_input("Apuesta Gs:", value=2000.0, step=1000.0, key="valor_apuesta_manual")
 with col_ck: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
 
-# Historial Visual
+# Historial
 if st.session_state.historial:
     html_b = ""
     for val in reversed(st.session_state.historial[-15:]):

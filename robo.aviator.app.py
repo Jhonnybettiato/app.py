@@ -23,6 +23,8 @@ st.markdown("""
         display: flex; align-items: center; justify-content: center; 
         font-weight: 900; color: white; padding: 0 10px;
     }
+    /* Estilo para que el botón del formulario sea invisible o discreto si se desea */
+    .stButton>button { width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -36,7 +38,6 @@ if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
-if 'entrada_manual' not in st.session_state: st.session_state.entrada_manual = ""
 
 # --- FUNCIONES DE APOYO ---
 def contar_rondas_desde_rosa():
@@ -58,7 +59,6 @@ def obtener_semaforo():
         if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
         if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
         return "🔴 NO ENTRAR", "#c0392b"
-    
     elif "Cazador" in est:
         distancia = -1
         for i, v in enumerate(reversed(hist)):
@@ -67,53 +67,16 @@ def obtener_semaforo():
                 break
         if 2 <= distancia <= 10: return "🟢 RACHA DETECTADA", "#27ae60"
         return "🔴 ESPERANDO CICLO", "#c0392b"
-
     elif "Espejo" in est:
         if len(hist) < 4: return "FALTAN DATOS", "#333"
         ultimos_5 = hist[-5:]
         rosas = sum(1 for v in ultimos_5 if v >= 10)
         if rosas >= 2: return "🟢 ESPEJO ACTIVO", "#8e44ad"
         return "🔴 BUSCANDO PAR", "#c0392b"
-
     else:
         target = 1.5 if "1.50x" in est else 2.0
         if hist[-1] >= target: return "🟢 APUESTE (RACHA)", "#27ae60"
         return "🔴 NO ENTRAR", "#c0392b"
-
-# --- LÓGICA DE REGISTRO ---
-def registrar_valor():
-    # Usamos el valor que está en el widget temporal
-    raw_val = st.session_state.temp_entrada
-    if raw_val:
-        try:
-            v_val = float(raw_val.replace(',', '.'))
-            impacto = 0.0
-            if st.session_state.check_apuesta:
-                ap = float(st.session_state.valor_apuesta_manual)
-                est = st.session_state.modo_sel
-                t = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else (1.5 if "1.5" in est else 2.0)
-                impacto = (ap * (t - 1)) if v_val >= t else -float(ap)
-            
-            st.session_state.historial.append(v_val)
-            st.session_state.registro_saldos.append(impacto)
-            st.session_state.saldo_dinamico += impacto
-            
-            nueva_h = datetime.now(py_tz).strftime("%H:%M")
-            if v_val >= 100: 
-                st.session_state.h_100x_input = nueva_h
-                st.session_state.h_10x_input = nueva_h
-            elif v_val >= 10: 
-                st.session_state.h_10x_input = nueva_h
-        except ValueError:
-            pass # Si no es un número válido, no hace nada
-        
-        # LIMPIEZA: Esto vacía la caja de texto tras el Enter
-        st.session_state.temp_entrada = ""
-
-def deshacer_accion():
-    if st.session_state.historial:
-        st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
-        st.session_state.historial.pop()
 
 def get_minutos(hora_str):
     if "---" in hora_str or ":" not in hora_str: return "?"
@@ -135,8 +98,7 @@ with st.sidebar:
     st.session_state.modo_sel = st.selectbox("Estrategia:", ["Espejo Gemelo (10x)", "Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
     
     if st.button("🔄 Reiniciar App"):
-        for key in list(st.session_state.keys()):
-            del st.session_state[key]
+        st.session_state.clear()
         st.rerun()
 
 st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.2</h1>", unsafe_allow_html=True)
@@ -166,20 +128,56 @@ with t3:
 txt_s, col_s = obtener_semaforo()
 st.markdown(f'<div class="semaforo-box" style="background-color:{col_s}; border:4px solid rgba(255,255,255,0.2);"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 
-# FILA 4: ENTRADAS (CORREGIDA)
+# --- FILA 4: ENTRADA CON FORMULARIO (SOLUCIÓN DEFINITIVA) ---
 st.markdown("<br>", unsafe_allow_html=True)
-col_in, col_ap, col_ck, col_undo = st.columns([2, 1, 1, 1])
-with col_in: 
-    # Usamos temp_entrada y el callback registrar_valor
-    st.text_input("VUELO:", key="temp_entrada", on_change=registrar_valor)
-with col_ap: 
-    st.number_input("APUESTA:", value=2000, step=1000, key="valor_apuesta_manual")
-with col_ck: 
-    st.write("##")
-    st.checkbox("¿APOSTÉ?", key="check_apuesta")
-with col_undo: 
-    st.write("##")
-    st.button("🔙 DESHACER", on_click=deshacer_accion)
+
+# Usamos clear_on_submit para que la caja se limpie sola al dar Enter
+with st.form("registro_vuelo", clear_on_submit=True):
+    col_in, col_ap, col_ck, col_btn = st.columns([2, 1, 1, 1])
+    
+    with col_in:
+        valor_input = st.text_input("VUELO (Ctrl+V y Enter):", placeholder="Ej: 2.55")
+    with col_ap:
+        apuesta_valor = st.number_input("APUESTA:", value=2000, step=1000)
+    with col_ck:
+        st.write("###")
+        apostado = st.checkbox("¿APOSTÉ?")
+    with col_btn:
+        st.write("###")
+        enviado = st.form_submit_button("REGISTRAR")
+
+    if enviado and valor_input:
+        try:
+            v_val = float(valor_input.replace(',', '.'))
+            impacto = 0.0
+            if apostado:
+                est = st.session_state.modo_sel
+                t = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else (1.5 if "1.5" in est else 2.0)
+                impacto = (apuesta_valor * (t - 1)) if v_val >= t else -float(apuesta_valor)
+            
+            # Actualizar Historial
+            st.session_state.historial.append(v_val)
+            st.session_state.registro_saldos.append(impacto)
+            st.session_state.saldo_dinamico += impacto
+            
+            # Actualizar horas
+            nueva_h = datetime.now(py_tz).strftime("%H:%M")
+            if v_val >= 100: 
+                st.session_state.h_100x_input = nueva_h
+                st.session_state.h_10x_input = nueva_h
+            elif v_val >= 10: 
+                st.session_state.h_10x_input = nueva_h
+            
+            st.rerun() # Refrescar para mostrar cambios
+        except ValueError:
+            st.error("Formato inválido")
+
+# Botón Deshacer (fuera del formulario para que sea independiente)
+if st.button("🔙 DESHACER ÚLTIMA"):
+    if st.session_state.historial:
+        st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
+        st.session_state.historial.pop()
+        st.rerun()
 
 # HISTORIAL VISUAL
 if st.session_state.historial:

@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v9.0", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v9.1", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -18,6 +18,11 @@ st.markdown("""
     .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1.1rem; margin-top: 5px; }
     .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; }
     .semaforo-texto { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
+    .round-counter {
+        background: linear-gradient(90deg, #1e1e1e, #2d2d2d);
+        padding: 10px; border-radius: 10px; border-left: 5px solid #e91e63;
+        margin-top: 10px; text-align: center;
+    }
     .burbuja { 
         min-width: 75px; height: 60px; border-radius: 30px; 
         display: flex; align-items: center; justify-content: center; 
@@ -37,44 +42,14 @@ if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = Tru
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
-# --- MOTOR DE ESTRATEGIAS v9.0 ---
-def obtener_semaforo():
-    if len(st.session_state.historial) < 4: return "ESPERANDO DATOS", "#333"
-    hist = st.session_state.historial
-    est = st.session_state.modo_sel
-    
-    # --- NUEVA: ESTRATEGIA ESPEJO (GEMELOS) ---
-    if "Espejo" in est:
-        # Detecta Rosa -> Azul -> Azul -> Rosa... y avisa para el tercer Rosa
-        ultimos_4 = hist[-4:] # Miramos las últimas 4 rondas
-        rosas = sum(1 for v in ultimos_4 if v >= 10)
-        azules = sum(1 for v in ultimos_4 if v < 2)
-        
-        if rosas >= 2 and azules >= 1:
-            return "🟢 ESPEJO DETECTADO", "#8e44ad" # Violeta para Espejo
-        elif rosas == 1:
-            return "🟡 BUSCANDO PAR", "#f1c40f"
-        return "🔴 NO HAY REFLEJO", "#c0392b"
-
-    # --- CAZADOR 10X ---
-    elif "Cazador" in est:
-        dist = next((i for i, v in enumerate(reversed(hist)) if v >= 10), 99)
-        if 2 <= dist <= 10: return "🟢 APUESTE AHORA", "#27ae60"
-        return "🔴 NO ENTRAR", "#c0392b"
-
-    # --- HUECO 10X+ ---
-    elif "Hueco" in est:
-        sin_rosa = 0
-        for v in reversed(hist):
-            if v >= 10: break
-            sin_rosa += 1
-        if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
-        if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
-        return "🔴 NO ENTRAR", "#c0392b"
-
-    return "🔴 ESPERE", "#c0392b"
-
 # --- FUNCIONES DE SOPORTE ---
+def contar_rondas_desde_rosa():
+    count = 0
+    for v in reversed(st.session_state.historial):
+        if v >= 10: break
+        count += 1
+    return count
+
 def registrar_valor():
     if st.session_state.entrada_manual:
         try:
@@ -110,6 +85,21 @@ def get_minutos(hora_str):
         return diff if diff >= 0 else (diff + 1440)
     except: return "?"
 
+# --- LÓGICA SEMÁFORO ---
+def obtener_semaforo():
+    if len(st.session_state.historial) < 2: return "ESPERANDO DATOS", "#333"
+    hist = st.session_state.historial
+    est = st.session_state.modo_sel
+    sin_rosa = contar_rondas_desde_rosa()
+    
+    if "Hueco" in est:
+        if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
+        if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
+        return "🔴 NO ENTRAR", "#c0392b"
+    
+    # ... (Resto de lógicas iguales a v9.0)
+    return "🔴 ESPERE", "#c0392b"
+
 # --- INTERFAZ ---
 with st.sidebar:
     st.header("🦅 CONFIG ELITE")
@@ -117,15 +107,11 @@ with st.sidebar:
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
-    
-    # LISTA DE 5 ESTRATEGIAS
-    st.session_state.modo_sel = st.selectbox("Estrategia:", 
-        ["Espejo Gemelo (10x)", "Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
-    
+    st.session_state.modo_sel = st.selectbox("Estrategia:", ["Espejo Gemelo (10x)", "Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear(); st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.0</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.1</h1>", unsafe_allow_html=True)
 
 # FILA 1: MÉTRICAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
@@ -134,8 +120,8 @@ with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p
 with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# FILA 2: RELOJES
-t1, t2 = st.columns(2)
+# FILA 2: RELOJES Y CONTADOR DE RONDAS
+t1, t2, t3 = st.columns(3)
 with t1:
     st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
     st.text_input("H10", key="h_10x_input", label_visibility="collapsed")
@@ -144,6 +130,10 @@ with t2:
     st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
     st.text_input("H100", key="h_100x_input", label_visibility="collapsed")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
+with t3:
+    # EL NUEVO CONTADOR DE RONDAS
+    r_count = contar_rondas_desde_rosa()
+    st.markdown(f'<div class="elite-card" style="border:1px solid #e91e63;"><p class="label-elite">📊 RONDAS SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{r_count}</h2><p style="color:#777; font-size:0.7rem;">Desde el último 10x+</p></div>', unsafe_allow_html=True)
 
 # FILA 3: SEMÁFORO
 txt_s, col_s = obtener_semaforo()

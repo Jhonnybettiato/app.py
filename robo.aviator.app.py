@@ -4,16 +4,29 @@ import pytz
 import re
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v9.3.6", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v9.3.7", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
-    .block-container { padding-top: 0.5rem; }
+    .block-container { padding-top: 1rem; }
     
+    /* Título del Robot */
+    .robot-title {
+        color: #ffffff;
+        text-align: center;
+        font-size: 2rem;
+        font-weight: 900;
+        margin-bottom: 20px;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        border-bottom: 2px solid #333;
+        padding-bottom: 10px;
+    }
+
     /* Etiquetas de input en Blanco */
-    label { color: white !important; font-weight: bold !important; text-transform: uppercase; font-size: 0.8rem; }
+    label { color: white !important; font-weight: bold !important; text-transform: uppercase; font-size: 0.85rem; }
     
     .elite-card { 
         background-color: #121212; padding: 10px; border-radius: 12px; 
@@ -23,15 +36,15 @@ st.markdown("""
     .valor-elite { color: #FFFFFF !important; font-size: 1.5rem; font-weight: 900; line-height: 1.2; }
     .minutos-meta { color: #00ff41; font-weight: bold; font-size: 0.9rem; margin-top: 2px; }
     
-    .semaforo-box { padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 10px; }
-    .semaforo-texto { font-size: 1.5rem; font-weight: 900; color: white; margin: 0; }
+    .semaforo-box { padding: 15px; border-radius: 15px; text-align: center; margin-bottom: 15px; }
+    .semaforo-texto { font-size: 1.6rem; font-weight: 900; color: white; margin: 0; }
     
     .rosa-val-txt { color: #e91e63; font-weight: 900; font-size: 1rem; }
     
     .burbuja { 
-        min-width: 50px; height: 45px; border-radius: 20px; 
+        min-width: 55px; height: 50px; border-radius: 25px; 
         display: flex; align-items: center; justify-content: center; 
-        font-weight: 900; color: white; font-size: 0.8rem; margin-right: 4px;
+        font-weight: 900; color: white; font-size: 0.9rem; margin-right: 5px;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -73,63 +86,50 @@ with st.sidebar:
     st.session_state.modo_sel = st.selectbox("Estrategia:", ["Hueco 10x+", "Cazador (10x)", "Espejo Gemelo (10x)", "Conservadora (1.5x)"])
     if st.button("🔄 Reiniciar App"): st.session_state.clear(); st.rerun()
 
-# ---------------------------------------------------------
-# INTERFAZ PRINCIPAL (ORDENADA)
-# ---------------------------------------------------------
+# --- 1. TÍTULO DEL ROBOT (ARRIBA DE TODO) ---
+st.markdown('<div class="robot-title">🦅 AVIATOR ELITE V9.3.7</div>', unsafe_allow_html=True)
 
-# 1. MÉTRICAS SUPERIORES
+# --- 2. MÉTRICAS ---
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
 m1, m2, m3 = st.columns(3)
-with m1: st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO</p><p class="valor-elite">{int(st.session_state.saldo_dinamico):,}</p></div>', unsafe_allow_html=True)
+with m1: st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO ACTUAL</p><p class="valor-elite">{int(st.session_state.saldo_dinamico):,}</p></div>', unsafe_allow_html=True)
 with m2: st.markdown(f'<div class="elite-card" style="border-color:#00ff41;"><p class="label-elite">GANANCIA</p><p class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,}</p></div>', unsafe_allow_html=True)
 with m3: st.markdown(f'<div class="elite-card" style="border-color:#ff3131;"><p class="label-elite">PÉRDIDA</p><p class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,}</p></div>', unsafe_allow_html=True)
 
-# 2. RELOJES Y CONTADOR
+# --- 3. RELOJES ---
 t1, t2, t3 = st.columns(3)
 with t1:
     st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
-    st.session_state.h_10x_input = st.text_input("H10", value=st.session_state.h_10x_input, label_visibility="collapsed", key="h10_v")
+    st.session_state.h_10x_input = st.text_input("H10", value=st.session_state.h_10x_input, label_visibility="collapsed", key="h10_main")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
 with t2:
     st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
-    st.session_state.h_100x_input = st.text_input("H100", value=st.session_state.h_100x_input, label_visibility="collapsed", key="h100_v")
+    st.session_state.h_100x_input = st.text_input("H100", value=st.session_state.h_100x_input, label_visibility="collapsed", key="h100_main")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 with t3:
     sin_rosa = contar_rondas_sin_rosa()
     st.markdown(f'<div class="elite-card" style="border-color:#e91e63;"><p class="label-elite">📊 SIN ROSA</p><p class="valor-elite" style="color:#e91e63!important;">{sin_rosa}</p></div>', unsafe_allow_html=True)
 
-# 3. HISTORIAL ROSA (EXPANDIBLE)
-with st.expander("📊 HISTORIAL DE HORARIOS ROSA", expanded=True):
-    if st.session_state.historial_rosas:
-        for idx, rosa in enumerate(reversed(st.session_state.historial_rosas[-5:])):
-            r_idx = len(st.session_state.historial_rosas) - 1 - idx
-            cv, ct = st.columns([1, 1])
-            cv.markdown(f'<span class="rosa-val-txt">🌸 {rosa["valor"]}x</span>', unsafe_allow_html=True)
-            new_h = ct.text_input(f"edit_{r_idx}", value=rosa["hora"], key=f"rosa_{r_idx}", label_visibility="collapsed")
-            st.session_state.historial_rosas[r_idx]["hora"] = new_h
-    else: st.write("Esperando...")
+# --- 4. HISTORIAL DE RONDAS (BURBUJAS) ---
+if st.session_state.historial:
+    b_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-12:])])
+    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:10px; background:#111; border-radius:10px; margin-bottom:15px; border: 1px solid #333;">{b_html}</div>', unsafe_allow_html=True)
 
-# 4. SEMÁFORO DE ENTRADA
+# --- 5. SEMÁFORO ---
 txt_s, col_s = ("🟢 ENTRAR", "#27ae60") if sin_rosa >= 25 else ("🟡 ALERTA", "#f1c40f") if sin_rosa >= 18 else ("🔴 NO ENTRAR", "#c0392b")
 st.markdown(f'<div class="semaforo-box" style="background-color:{col_s};"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 
-# 5. BURBUJAS DE ÚLTIMAS RONDAS
-if st.session_state.historial:
-    b_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-10:])])
-    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:10px; background:#111; border-radius:10px; margin-bottom:15px;">{b_html}</div>', unsafe_allow_html=True)
-
-# 6. PANEL DE REGISTRO (AHORA ABAJO)
-st.markdown("---")
-with st.form("registro_vuelo", clear_on_submit=True):
-    c1, c2, c3 = st.columns([2, 1, 1])
-    with c1:
-        # Título en blanco por CSS arriba
-        v_raw = st.text_input("VALOR DEL VUELO", placeholder="Ej: 1.50")
-    with c2:
+# --- 6. REGISTRO DE VUELO (ABAJO) ---
+st.markdown("<br>", unsafe_allow_html=True)
+with st.form("registro_final", clear_on_submit=True):
+    col_v, col_a, col_b = st.columns([2, 1, 1])
+    with col_v:
+        v_raw = st.text_input("VALOR DEL VUELO", placeholder="Ej: 2.10")
+    with col_a:
         ap = st.number_input("APUESTA", value=2000, step=1000)
-    with c3:
+    with col_b:
         st.write("##")
-        btn = st.form_submit_button("REGISTRAR 🚀", use_container_width=True)
+        btn = st.form_submit_button("REGISTRAR ✈️", use_container_width=True)
 
     if btn and v_raw:
         try:
@@ -140,15 +140,14 @@ with st.form("registro_vuelo", clear_on_submit=True):
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
             if val >= 10:
-                h_actual = datetime.now(py_tz).strftime("%H:%M")
-                st.session_state.h_10x_input = h_actual
-                st.session_state.historial_rosas.append({"valor": val, "hora": h_actual})
-                if val >= 100: st.session_state.h_100x_input = h_actual
+                h_act = datetime.now(py_tz).strftime("%H:%M")
+                st.session_state.h_10x_input = h_act
+                st.session_state.historial_rosas.append({"valor": val, "hora": h_act})
             st.rerun()
-        except: st.error("Dato inválido")
+        except: pass
 
-# 7. BOTÓN BORRAR
-if st.button("🔙 BORRAR ÚLTIMA", use_container_width=True):
+# --- 7. BOTÓN DESHACER ---
+if st.button("🔙 BORRAR ÚLTIMA RONDA", use_container_width=True):
     if st.session_state.historial:
         v = st.session_state.historial.pop()
         st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()

@@ -26,7 +26,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización
+# 2. Inicialización de Estados
 py_tz = pytz.timezone('America/Asuncion')
 now_str = datetime.now(py_tz).strftime("%H:%M")
 
@@ -36,6 +36,7 @@ if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
+if 'entrada_manual' not in st.session_state: st.session_state.entrada_manual = ""
 
 # --- FUNCIONES DE APOYO ---
 def contar_rondas_desde_rosa():
@@ -53,15 +54,12 @@ def obtener_semaforo():
     est = st.session_state.modo_sel
     sin_rosa = contar_rondas_desde_rosa()
     
-    # 1. ESTRATEGIA: HUECO 10X+
     if "Hueco" in est:
         if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
         if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
         return "🔴 NO ENTRAR", "#c0392b"
     
-    # 2. ESTRATEGIA: CAZADOR (RACHAS)
     elif "Cazador" in est:
-        # Busca a qué distancia está la última rosa
         distancia = -1
         for i, v in enumerate(reversed(hist)):
             if v >= 10:
@@ -70,32 +68,29 @@ def obtener_semaforo():
         if 2 <= distancia <= 10: return "🟢 RACHA DETECTADA", "#27ae60"
         return "🔴 ESPERANDO CICLO", "#c0392b"
 
-    # 3. ESTRATEGIA: ESPEJO GEMELO
     elif "Espejo" in est:
         if len(hist) < 4: return "FALTAN DATOS", "#333"
-        # Patrón: Rosa (H-3 o H-2) + Azul + Rosa cercana
         ultimos_5 = hist[-5:]
         rosas = sum(1 for v in ultimos_5 if v >= 10)
         if rosas >= 2: return "🟢 ESPEJO ACTIVO", "#8e44ad"
         return "🔴 BUSCANDO PAR", "#c0392b"
 
-    # 4. ESTRATEGIAS CONSERVADORAS (1.50x y 2x2)
     else:
         target = 1.5 if "1.50x" in est else 2.0
-        # Si la última fue buena, hay probabilidad de racha corta
         if hist[-1] >= target: return "🟢 APUESTE (RACHA)", "#27ae60"
         return "🔴 NO ENTRAR", "#c0392b"
 
-# --- REGISTRO Y ACCIONES ---
+# --- LÓGICA DE REGISTRO ---
 def registrar_valor():
-    if st.session_state.entrada_manual:
+    # Usamos el valor que está en el widget temporal
+    raw_val = st.session_state.temp_entrada
+    if raw_val:
         try:
-            v_val = float(str(st.session_state.entrada_manual).replace(',', '.'))
+            v_val = float(raw_val.replace(',', '.'))
             impacto = 0.0
             if st.session_state.check_apuesta:
                 ap = float(st.session_state.valor_apuesta_manual)
                 est = st.session_state.modo_sel
-                # Definir meta según estrategia para contabilidad
                 t = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else (1.5 if "1.5" in est else 2.0)
                 impacto = (ap * (t - 1)) if v_val >= t else -float(ap)
             
@@ -109,8 +104,11 @@ def registrar_valor():
                 st.session_state.h_10x_input = nueva_h
             elif v_val >= 10: 
                 st.session_state.h_10x_input = nueva_h
-        except: pass
-        st.session_state.entrada_manual = ""
+        except ValueError:
+            pass # Si no es un número válido, no hace nada
+        
+        # LIMPIEZA: Esto vacía la caja de texto tras el Enter
+        st.session_state.temp_entrada = ""
 
 def deshacer_accion():
     if st.session_state.historial:
@@ -133,9 +131,13 @@ with st.sidebar:
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
+    
     st.session_state.modo_sel = st.selectbox("Estrategia:", ["Espejo Gemelo (10x)", "Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
+    
     if st.button("🔄 Reiniciar App"):
-        st.session_state.clear(); st.rerun()
+        for key in list(st.session_state.keys()):
+            del st.session_state[key]
+        st.rerun()
 
 st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.2</h1>", unsafe_allow_html=True)
 
@@ -146,33 +148,40 @@ with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p
 with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# FILA 2: RELOJES Y CONTADOR
+# FILA 2: RELOJES
 t1, t2, t3 = st.columns(3)
 with t1:
     st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
-    st.text_input("H10", key="h_10x_input", label_visibility="collapsed")
+    st.session_state.h_10x_input = st.text_input("H10", value=st.session_state.h_10x_input, label_visibility="collapsed")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
 with t2:
     st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
-    st.text_input("H100", key="h_100x_input", label_visibility="collapsed")
+    st.session_state.h_100x_input = st.text_input("H100", value=st.session_state.h_100x_input, label_visibility="collapsed")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 with t3:
     r_count = contar_rondas_desde_rosa()
     st.markdown(f'<div class="elite-card" style="border:1px solid #e91e63;"><p class="label-elite">📊 RONDAS SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{r_count}</h2></div>', unsafe_allow_html=True)
 
-# FILA 3: SEMÁFORO (CORREGIDO)
+# FILA 3: SEMÁFORO
 txt_s, col_s = obtener_semaforo()
 st.markdown(f'<div class="semaforo-box" style="background-color:{col_s}; border:4px solid rgba(255,255,255,0.2);"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 
-# FILA 4: ENTRADAS
+# FILA 4: ENTRADAS (CORREGIDA)
 st.markdown("<br>", unsafe_allow_html=True)
 col_in, col_ap, col_ck, col_undo = st.columns([2, 1, 1, 1])
-with col_in: st.text_input("VUELO:", key="entrada_manual", on_change=registrar_valor)
-with col_ap: st.number_input("APUESTA:", value=2000, step=1000, key="valor_apuesta_manual")
-with col_ck: st.write("##"); st.checkbox("¿APOSTÉ?", key="check_apuesta")
-with col_undo: st.write("##"); st.button("🔙 DESHACER", on_click=deshacer_accion)
+with col_in: 
+    # Usamos temp_entrada y el callback registrar_valor
+    st.text_input("VUELO:", key="temp_entrada", on_change=registrar_valor)
+with col_ap: 
+    st.number_input("APUESTA:", value=2000, step=1000, key="valor_apuesta_manual")
+with col_ck: 
+    st.write("##")
+    st.checkbox("¿APOSTÉ?", key="check_apuesta")
+with col_undo: 
+    st.write("##")
+    st.button("🔙 DESHACER", on_click=deshacer_accion)
 
-# HISTORIAL
+# HISTORIAL VISUAL
 if st.session_state.historial:
     h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-10:])])
     st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:15px; background:#111; border-radius:15px; margin-top:20px;">{h_html}</div>', unsafe_allow_html=True)

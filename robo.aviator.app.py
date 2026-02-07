@@ -154,8 +154,11 @@ with st.form("panel_registro", clear_on_submit=True):
 
     if submit and valor_vuelo:
         try:
-            # Procesar el valor
-            v_val = float(valor_vuelo.replace(',', '.'))
+            # LIMPIEZA AUTOMÁTICA (Para extensiones como Copyfish/Blackbox)
+            # Quita la 'x', espacios y cambia comas por puntos
+            dato_limpio = valor_vuelo.lower().replace('x', '').replace(' ', '').replace(',', '.')
+            
+            v_val = float(dato_limpio)
             impacto = 0.0
             
             if he_apostado:

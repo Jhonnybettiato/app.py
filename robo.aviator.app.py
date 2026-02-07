@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v9.1", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v9.2", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -18,11 +18,6 @@ st.markdown("""
     .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1.1rem; margin-top: 5px; }
     .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; }
     .semaforo-texto { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
-    .round-counter {
-        background: linear-gradient(90deg, #1e1e1e, #2d2d2d);
-        padding: 10px; border-radius: 10px; border-left: 5px solid #e91e63;
-        margin-top: 10px; text-align: center;
-    }
     .burbuja { 
         min-width: 75px; height: 60px; border-radius: 30px; 
         display: flex; align-items: center; justify-content: center; 
@@ -42,7 +37,7 @@ if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = Tru
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
-# --- FUNCIONES DE SOPORTE ---
+# --- FUNCIONES DE APOYO ---
 def contar_rondas_desde_rosa():
     count = 0
     for v in reversed(st.session_state.historial):
@@ -50,6 +45,48 @@ def contar_rondas_desde_rosa():
         count += 1
     return count
 
+def obtener_semaforo():
+    if len(st.session_state.historial) < 3: 
+        return "ESPERANDO DATOS...", "#333"
+    
+    hist = st.session_state.historial
+    est = st.session_state.modo_sel
+    sin_rosa = contar_rondas_desde_rosa()
+    
+    # 1. ESTRATEGIA: HUECO 10X+
+    if "Hueco" in est:
+        if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
+        if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
+        return "🔴 NO ENTRAR", "#c0392b"
+    
+    # 2. ESTRATEGIA: CAZADOR (RACHAS)
+    elif "Cazador" in est:
+        # Busca a qué distancia está la última rosa
+        distancia = -1
+        for i, v in enumerate(reversed(hist)):
+            if v >= 10:
+                distancia = i
+                break
+        if 2 <= distancia <= 10: return "🟢 RACHA DETECTADA", "#27ae60"
+        return "🔴 ESPERANDO CICLO", "#c0392b"
+
+    # 3. ESTRATEGIA: ESPEJO GEMELO
+    elif "Espejo" in est:
+        if len(hist) < 4: return "FALTAN DATOS", "#333"
+        # Patrón: Rosa (H-3 o H-2) + Azul + Rosa cercana
+        ultimos_5 = hist[-5:]
+        rosas = sum(1 for v in ultimos_5 if v >= 10)
+        if rosas >= 2: return "🟢 ESPEJO ACTIVO", "#8e44ad"
+        return "🔴 BUSCANDO PAR", "#c0392b"
+
+    # 4. ESTRATEGIAS CONSERVADORAS (1.50x y 2x2)
+    else:
+        target = 1.5 if "1.50x" in est else 2.0
+        # Si la última fue buena, hay probabilidad de racha corta
+        if hist[-1] >= target: return "🟢 APUESTE (RACHA)", "#27ae60"
+        return "🔴 NO ENTRAR", "#c0392b"
+
+# --- REGISTRO Y ACCIONES ---
 def registrar_valor():
     if st.session_state.entrada_manual:
         try:
@@ -58,16 +95,20 @@ def registrar_valor():
             if st.session_state.check_apuesta:
                 ap = float(st.session_state.valor_apuesta_manual)
                 est = st.session_state.modo_sel
-                target = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else 2.0
-                impacto = (ap * (target - 1)) if v_val >= target else -float(ap)
+                # Definir meta según estrategia para contabilidad
+                t = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else (1.5 if "1.5" in est else 2.0)
+                impacto = (ap * (t - 1)) if v_val >= t else -float(ap)
             
             st.session_state.historial.append(v_val)
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
             
             nueva_h = datetime.now(py_tz).strftime("%H:%M")
-            if v_val >= 100: st.session_state.h_100x_input = nueva_h; st.session_state.h_10x_input = nueva_h
-            elif v_val >= 10: st.session_state.h_10x_input = nueva_h
+            if v_val >= 100: 
+                st.session_state.h_100x_input = nueva_h
+                st.session_state.h_10x_input = nueva_h
+            elif v_val >= 10: 
+                st.session_state.h_10x_input = nueva_h
         except: pass
         st.session_state.entrada_manual = ""
 
@@ -85,21 +126,6 @@ def get_minutos(hora_str):
         return diff if diff >= 0 else (diff + 1440)
     except: return "?"
 
-# --- LÓGICA SEMÁFORO ---
-def obtener_semaforo():
-    if len(st.session_state.historial) < 2: return "ESPERANDO DATOS", "#333"
-    hist = st.session_state.historial
-    est = st.session_state.modo_sel
-    sin_rosa = contar_rondas_desde_rosa()
-    
-    if "Hueco" in est:
-        if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
-        if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
-        return "🔴 NO ENTRAR", "#c0392b"
-    
-    # ... (Resto de lógicas iguales a v9.0)
-    return "🔴 ESPERE", "#c0392b"
-
 # --- INTERFAZ ---
 with st.sidebar:
     st.header("🦅 CONFIG ELITE")
@@ -111,7 +137,7 @@ with st.sidebar:
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear(); st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.1</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v9.2</h1>", unsafe_allow_html=True)
 
 # FILA 1: MÉTRICAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
@@ -120,7 +146,7 @@ with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p
 with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# FILA 2: RELOJES Y CONTADOR DE RONDAS
+# FILA 2: RELOJES Y CONTADOR
 t1, t2, t3 = st.columns(3)
 with t1:
     st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
@@ -131,11 +157,10 @@ with t2:
     st.text_input("H100", key="h_100x_input", label_visibility="collapsed")
     st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 with t3:
-    # EL NUEVO CONTADOR DE RONDAS
     r_count = contar_rondas_desde_rosa()
-    st.markdown(f'<div class="elite-card" style="border:1px solid #e91e63;"><p class="label-elite">📊 RONDAS SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{r_count}</h2><p style="color:#777; font-size:0.7rem;">Desde el último 10x+</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="elite-card" style="border:1px solid #e91e63;"><p class="label-elite">📊 RONDAS SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{r_count}</h2></div>', unsafe_allow_html=True)
 
-# FILA 3: SEMÁFORO
+# FILA 3: SEMÁFORO (CORREGIDO)
 txt_s, col_s = obtener_semaforo()
 st.markdown(f'<div class="semaforo-box" style="background-color:{col_s}; border:4px solid rgba(255,255,255,0.2);"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 

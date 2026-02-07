@@ -4,7 +4,7 @@ import pytz
 import re
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v9.2.8", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v9.2.9", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -19,15 +19,7 @@ st.markdown("""
     .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1.1rem; margin-top: 5px; }
     .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; }
     .semaforo-texto { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
-    
-    /* Diseño de la fila del historial rosa */
-    .rosa-row {
-        background-color: #1a1a1a; border-left: 5px solid #e91e63;
-        padding: 5px 15px; margin-bottom: 5px; border-radius: 5px;
-        display: flex; align-items: center; justify-content: space-between;
-    }
     .rosa-val-txt { color: #e91e63; font-weight: 900; font-size: 1.1rem; }
-    
     .burbuja { 
         min-width: 65px; height: 60px; border-radius: 30px; 
         display: flex; align-items: center; justify-content: center; 
@@ -57,11 +49,22 @@ def contar_rondas_desde_rosa():
 def obtener_semaforo():
     if len(st.session_state.historial) < 2: return "ESPERANDO DATOS...", "#333"
     est = st.session_state.modo_sel
+    hist = st.session_state.historial
     sin_rosa = contar_rondas_desde_rosa()
+    
     if "Hueco" in est:
         if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
         if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
         return "🔴 NO ENTRAR", "#c0392b"
+    elif "Cazador" in est:
+        if 2 <= sin_rosa <= 10: return "🟢 ZONA DE CAZA", "#27ae60"
+        return "🔴 ESPERAR SEÑAL", "#c0392b"
+    elif "Espejo" in est:
+        if hist[-1] >= 10: return "🟢 POSIBLE ESPEJO", "#8e44ad"
+        return "🔴 ESPERANDO ROSA", "#c0392b"
+    elif "Conservadora" in est:
+        if hist[-1] < 2.0: return "🟢 ENTRAR", "#27ae60"
+        return "🔴 ESPERAR AZUL", "#c0392b"
     return "SISTEMA LISTO", "#3498db"
 
 def get_minutos(hora_str):
@@ -83,49 +86,10 @@ with st.sidebar:
     st.session_state.modo_sel = st.selectbox("Estrategia:", ["Hueco 10x+", "Cazador (10x)", "Espejo Gemelo (10x)", "Conservadora (1.50x)"])
     if st.button("🔄 Reiniciar App"): st.session_state.clear(); st.rerun()
 
-st.title("🦅 AVIATOR ELITE v9.2.8")
+st.title("🦅 AVIATOR ELITE v9.2.9")
 
-# FILA 1: MÉTRICAS
-ganancia_neta = st.session_state.saldo_dinamico - saldo_in
-c1, c2, c3 = st.columns(3)
-with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p class="label-elite">Saldo Actual</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,} Gs</h2></div>', unsafe_allow_html=True)
-with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
-with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
-
-# FILA 2: RELOJES (EDITABLES)
-t1, t2, t3 = st.columns(3)
-with t1:
-    st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
-    st.session_state.h_10x_input = st.text_input("H10", value=st.session_state.h_10x_input, label_visibility="collapsed")
-    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
-with t2:
-    st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
-    st.session_state.h_100x_input = st.text_input("H100", value=st.session_state.h_100x_input, label_visibility="collapsed")
-    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
-with t3:
-    st.markdown(f'<div class="elite-card" style="border:1px solid #e91e63;"><p class="label-elite">📊 RONDAS SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{contar_rondas_desde_rosa()}</h2></div>', unsafe_allow_html=True)
-
-# CAJA DE HISTORIAL ROSA (AHORA EDITABLE)
-with st.expander("📊 HISTORIAL DE HORARIOS ROSA", expanded=True):
-    if st.session_state.historial_rosas:
-        # Iteramos sobre el historial para crear filas con inputs
-        for idx, rosa in enumerate(reversed(st.session_state.historial_rosas[-5:])):
-            real_idx = len(st.session_state.historial_rosas) - 1 - idx
-            col_val, col_time = st.columns([1, 1])
-            with col_val:
-                st.markdown(f'<div style="padding-top:10px;"><span class="rosa-val-txt">🌸 {rosa["valor"]}x</span></div>', unsafe_allow_html=True)
-            with col_time:
-                # El usuario puede editar la hora directamente en la lista
-                nueva_hora = st.text_input(f"edit_h_{real_idx}", value=rosa["hora"], key=f"rosa_{real_idx}", label_visibility="collapsed")
-                st.session_state.historial_rosas[real_idx]["hora"] = nueva_hora
-    else:
-        st.write("Esperando registro de rosas...")
-
-# SEMÁFORO
-txt_s, col_s = obtener_semaforo()
-st.markdown(f'<div class="semaforo-box" style="background-color:{col_s};"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
-
-# REGISTRO
+# --- PROCESAMIENTO DE DATOS (ANTES DE RENDERIZAR INTERFAZ) ---
+# Esto asegura que el semáforo y los relojes lean el último cambio
 with st.form("panel_registro", clear_on_submit=True):
     col_in, col_ap, col_ck, col_btn = st.columns([2, 1, 1, 1])
     with col_in: valor_raw = st.text_input("VUELO:", placeholder="Ej: 12.50")
@@ -142,6 +106,7 @@ with st.form("panel_registro", clear_on_submit=True):
                 t = 10.0 if "10x" in st.session_state.modo_sel else 1.5 if "1.50x" in st.session_state.modo_sel else 2.0
                 impacto = (apuesta_manual * (t - 1)) if v_val >= t else -float(apuesta_manual)
             
+            # ACTUALIZACIÓN INMEDIATA DEL ESTADO
             st.session_state.historial.append(v_val)
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
@@ -151,17 +116,53 @@ with st.form("panel_registro", clear_on_submit=True):
                 st.session_state.h_10x_input = ahora
                 st.session_state.historial_rosas.append({"valor": v_val, "hora": ahora})
                 if v_val >= 100: st.session_state.h_100x_input = ahora
-            st.rerun()
+            
+            st.rerun() # Forzamos el refresco con los datos ya en memoria
         except: pass
 
-# BOTÓN DESHACER Y BURBUJAS
+# --- RENDERIZACIÓN DE MÉTRICAS Y RELOJES ---
+ganancia_neta = st.session_state.saldo_dinamico - saldo_in
+c1, c2, c3 = st.columns(3)
+with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p class="label-elite">Saldo Actual</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,} Gs</h2></div>', unsafe_allow_html=True)
+with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
+with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
+
+t1, t2, t3 = st.columns(3)
+with t1:
+    st.markdown('<div class="elite-card"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
+    st.session_state.h_10x_input = st.text_input("H10", value=st.session_state.h_10x_input, key="clock_h10", label_visibility="collapsed")
+    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
+with t2:
+    st.markdown('<div class="elite-card"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
+    st.session_state.h_100x_input = st.text_input("H100", value=st.session_state.h_100x_input, key="clock_h100", label_visibility="collapsed")
+    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
+with t3:
+    st.markdown(f'<div class="elite-card" style="border:1px solid #e91e63;"><p class="label-elite">📊 RONDAS SIN ROSA</p><h2 class="valor-elite" style="color:#e91e63!important;">{contar_rondas_desde_rosa()}</h2></div>', unsafe_allow_html=True)
+
+# HISTORIAL ROSA
+with st.expander("📊 HISTORIAL DE HORARIOS ROSA", expanded=True):
+    if st.session_state.historial_rosas:
+        for idx, rosa in enumerate(reversed(st.session_state.historial_rosas[-5:])):
+            real_idx = len(st.session_state.historial_rosas) - 1 - idx
+            col_val, col_time = st.columns([1, 1])
+            with col_val: st.markdown(f'<div style="padding-top:10px;"><span class="rosa-val-txt">🌸 {rosa["valor"]}x</span></div>', unsafe_allow_html=True)
+            with col_time:
+                nueva_h = st.text_input(f"h_{real_idx}", value=rosa["hora"], key=f"rosa_edit_{real_idx}", label_visibility="collapsed")
+                st.session_state.historial_rosas[real_idx]["hora"] = nueva_h
+    else: st.write("Esperando...")
+
+# SEMÁFORO
+txt_s, col_s = obtener_semaforo()
+st.markdown(f'<div class="semaforo-box" style="background-color:{col_s};"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
+
+# BURBUJAS
+if st.session_state.historial:
+    h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-12:])])
+    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:15px; border: 1px solid #333; margin-top:10px;">{h_html}</div>', unsafe_allow_html=True)
+
 if st.button("🔙 DESHACER ÚLTIMA"):
     if st.session_state.historial:
         v = st.session_state.historial.pop()
         st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
         if v >= 10: st.session_state.historial_rosas.pop()
         st.rerun()
-
-if st.session_state.historial:
-    h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-12:])])
-    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:15px; border: 1px solid #333; margin-top:10px;">{h_html}</div>', unsafe_allow_html=True)

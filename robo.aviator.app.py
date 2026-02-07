@@ -16,15 +16,13 @@ st.markdown("""
     .label-elite { color: #FFFFFF !important; font-weight: 800; text-transform: uppercase; font-size: 0.8rem; }
     .valor-elite { color: #FFFFFF !important; font-size: 2.2rem; font-weight: 900; }
     .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1.1rem; margin-top: 5px; }
-    .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; }
+    .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; transition: 0.3s; }
     .semaforo-texto { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
     .burbuja { 
         min-width: 75px; height: 60px; border-radius: 30px; 
         display: flex; align-items: center; justify-content: center; 
         font-weight: 900; color: white; padding: 0 10px;
     }
-    /* Estilo para que el botón del formulario sea invisible o discreto si se desea */
-    .stButton>button { width: 100%; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -39,7 +37,7 @@ if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = Tru
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
-# --- FUNCIONES DE APOYO ---
+# --- FUNCIONES DE LÓGICA ---
 def contar_rondas_desde_rosa():
     count = 0
     for v in reversed(st.session_state.historial):
@@ -48,31 +46,38 @@ def contar_rondas_desde_rosa():
     return count
 
 def obtener_semaforo():
-    if len(st.session_state.historial) < 3: 
+    if len(st.session_state.historial) < 2: 
         return "ESPERANDO DATOS...", "#333"
     
     hist = st.session_state.historial
     est = st.session_state.modo_sel
     sin_rosa = contar_rondas_desde_rosa()
     
+    # 1. HUECO 10X+
     if "Hueco" in est:
         if sin_rosa >= 25: return "🟢 HUECO ACTIVO", "#27ae60"
         if sin_rosa >= 18: return "🟡 ANALIZANDO...", "#f1c40f"
         return "🔴 NO ENTRAR", "#c0392b"
+    
+    # 2. CAZADOR
     elif "Cazador" in est:
         distancia = -1
         for i, v in enumerate(reversed(hist)):
             if v >= 10:
                 distancia = i
                 break
-        if 2 <= distancia <= 10: return "🟢 RACHA DETECTADA", "#27ae60"
+        if 2 <= distancia <= 12: return "🟢 RACHA DETECTADA", "#27ae60"
         return "🔴 ESPERANDO CICLO", "#c0392b"
+
+    # 3. ESPEJO GEMELO
     elif "Espejo" in est:
         if len(hist) < 4: return "FALTAN DATOS", "#333"
         ultimos_5 = hist[-5:]
         rosas = sum(1 for v in ultimos_5 if v >= 10)
         if rosas >= 2: return "🟢 ESPEJO ACTIVO", "#8e44ad"
         return "🔴 BUSCANDO PAR", "#c0392b"
+
+    # 4. CONSERVADORAS
     else:
         target = 1.5 if "1.50x" in est else 2.0
         if hist[-1] >= target: return "🟢 APUESTE (RACHA)", "#27ae60"
@@ -87,7 +92,7 @@ def get_minutos(hora_str):
         return diff if diff >= 0 else (diff + 1440)
     except: return "?"
 
-# --- INTERFAZ ---
+# --- INTERFAZ SIDEBAR ---
 with st.sidebar:
     st.header("🦅 CONFIG ELITE")
     saldo_in = st.number_input("Saldo Inicial Gs.", value=50000, step=5000)
@@ -95,7 +100,8 @@ with st.sidebar:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
     
-    st.session_state.modo_sel = st.selectbox("Estrategia:", ["Espejo Gemelo (10x)", "Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
+    st.session_state.modo_sel = st.selectbox("Estrategia:", 
+        ["Espejo Gemelo (10x)", "Cazador (10x)", "Hueco 10x+", "Conservadora (1.50x)", "2x2"])
     
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear()
@@ -128,39 +134,42 @@ with t3:
 txt_s, col_s = obtener_semaforo()
 st.markdown(f'<div class="semaforo-box" style="background-color:{col_s}; border:4px solid rgba(255,255,255,0.2);"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 
-# --- FILA 4: ENTRADA CON FORMULARIO (SOLUCIÓN DEFINITIVA) ---
+# --- FILA 4: ENTRADA DE DATOS (SOLUCIÓN AL CTRL+V) ---
 st.markdown("<br>", unsafe_allow_html=True)
 
-# Usamos clear_on_submit para que la caja se limpie sola al dar Enter
-with st.form("registro_vuelo", clear_on_submit=True):
+# El formulario permite que el 'Enter' dispare la lógica y limpie el campo
+with st.form("panel_registro", clear_on_submit=True):
     col_in, col_ap, col_ck, col_btn = st.columns([2, 1, 1, 1])
     
     with col_in:
-        valor_input = st.text_input("VUELO (Ctrl+V y Enter):", placeholder="Ej: 2.55")
+        valor_vuelo = st.text_input("PEGA AQUÍ EL VALOR:", placeholder="Ej: 1.80")
     with col_ap:
-        apuesta_valor = st.number_input("APUESTA:", value=2000, step=1000)
+        apuesta_actual = st.number_input("APUESTA (Gs):", value=2000, step=1000)
     with col_ck:
         st.write("###")
-        apostado = st.checkbox("¿APOSTÉ?")
+        he_apostado = st.checkbox("¿APOSTÉ?")
     with col_btn:
         st.write("###")
-        enviado = st.form_submit_button("REGISTRAR")
+        submit = st.form_submit_button("REGISTRAR")
 
-    if enviado and valor_input:
+    if submit and valor_vuelo:
         try:
-            v_val = float(valor_input.replace(',', '.'))
+            # Procesar el valor
+            v_val = float(valor_vuelo.replace(',', '.'))
             impacto = 0.0
-            if apostado:
-                est = st.session_state.modo_sel
-                t = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else (1.5 if "1.5" in est else 2.0)
-                impacto = (apuesta_valor * (t - 1)) if v_val >= t else -float(apuesta_valor)
             
-            # Actualizar Historial
+            if he_apostado:
+                est = st.session_state.modo_sel
+                # Definir meta según estrategia
+                target = 10.0 if any(x in est for x in ["Cazador", "Hueco", "Espejo"]) else (1.5 if "1.5" in est else 2.0)
+                impacto = (apuesta_actual * (target - 1)) if v_val >= target else -float(apuesta_actual)
+            
+            # Guardar en historial
             st.session_state.historial.append(v_val)
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
             
-            # Actualizar horas
+            # Actualizar tiempos
             nueva_h = datetime.now(py_tz).strftime("%H:%M")
             if v_val >= 100: 
                 st.session_state.h_100x_input = nueva_h
@@ -168,18 +177,20 @@ with st.form("registro_vuelo", clear_on_submit=True):
             elif v_val >= 10: 
                 st.session_state.h_10x_input = nueva_h
             
-            st.rerun() # Refrescar para mostrar cambios
+            st.rerun() # Recarga para actualizar semáforo y gráficas
+            
         except ValueError:
-            st.error("Formato inválido")
+            st.warning("Por favor, ingresa un número válido.")
 
-# Botón Deshacer (fuera del formulario para que sea independiente)
-if st.button("🔙 DESHACER ÚLTIMA"):
+# BOTÓN DESHACER
+if st.button("🔙 DESHACER ÚLTIMA ENTRADA"):
     if st.session_state.historial:
         st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
         st.session_state.historial.pop()
         st.rerun()
 
-# HISTORIAL VISUAL
+# HISTORIAL VISUAL (BURBUJAS)
 if st.session_state.historial:
-    h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-10:])])
-    st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:15px; background:#111; border-radius:15px; margin-top:20px;">{h_html}</div>', unsafe_allow_html=True)
+    # Mostramos los últimos 12 valores
+    h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-12:])])
+    st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:15px; background:#111; border-radius:15px; margin-top:20px; border: 1px solid #333;">{h_html}</div>', unsafe_allow_html=True)

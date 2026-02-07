@@ -3,54 +3,85 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v7.5", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v7.7", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS EFECTO NEÓN BLANCO ---
+# --- DISEÑO CSS ELITE ULTRA (Basado en la imagen) ---
 st.markdown("""
     <style>
-    .main { background-color: #0e1117; color: #ffffff; }
-    
-    /* VALORES CON EFECTO ENCENDIDO */
-    .brillo-neon { 
-        color: #FFFFFF !important; 
-        text-shadow: 0px 0px 15px rgba(255,255,255,0.8), 0px 0px 5px rgba(255,255,255,1);
-        margin: 0; 
-        font-weight: 900; 
+    /* Fondo con gradiente y líneas dinámicas */
+    .stApp {
+        background: linear-gradient(135deg, #000000 0%, #1a1a1a 100%);
+        background-attachment: fixed;
     }
     
-    .metric-card { 
-        background-color: #1e272e; 
+    /* Efecto de líneas doradas/rojas (Simulado en los bordes) */
+    .main { 
+        color: #ffffff; 
+    }
+
+    /* TARJETAS ESTILO IMAGEN */
+    .elite-card { 
+        background-color: rgba(30, 39, 46, 0.9); 
         padding: 20px; 
-        border-radius: 12px; 
+        border-radius: 15px; 
         text-align: center; 
-        border: 1px solid #4b5563;
+        margin-bottom: 10px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.5);
+    }
+    
+    .card-border-white { border: 2px solid #FFFFFF; }
+    .card-border-green { border: 2px solid #00ff41; }
+    .card-border-red { border: 2px solid #ff3131; }
+
+    /* TEXTOS */
+    .label-elite {
+        color: #FFFFFF !important;
+        font-weight: 800;
+        text-transform: uppercase;
+        font-size: 0.9rem;
         margin-bottom: 10px;
     }
-    .card-saldo { border: 2px solid #FFFFFF !important; }
     
-    .metric-card h2 { font-size: 2.6rem; }
-    .metric-card p { margin: 0; color: #bdc3c7; font-size: 0.85rem; font-weight: bold; text-transform: uppercase; }
-    
-    /* RELOJES CON MÁXIMO BRILLO */
-    .time-container { display: flex; gap: 10px; margin: 10px 0px; }
-    .time-card { 
-        flex: 1; 
-        background-color: #1e272e; 
-        padding: 15px; 
-        border-radius: 10px; 
-        text-align: center; 
-        border: 2px solid #FFFFFF; /* Borde sólido para más luz */
+    .valor-elite { 
+        color: #FFFFFF !important; 
+        font-size: 2.2rem;
+        font-weight: 900;
+        text-shadow: 0px 0px 10px rgba(255,255,255,0.5);
     }
-    .val-tiempo { font-size: 2.2rem; }
-    .time-elapsed { font-size: 1.1rem; color: #00ff41; font-weight: bold; margin-top: 5px; text-shadow: 0px 0px 5px rgba(0,255,65,0.5); }
 
-    .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; border: 1px solid rgba(255,255,255,0.2); }
-    .historial-container { display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding: 15px 5px; background: #00000050; border-radius: 10px; }
-    .burbuja { min-width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; color: white; border: 2px solid #ffffff20; }
+    .valor-verde { color: #00ff41 !important; text-shadow: 0px 0px 10px rgba(0,255,65,0.5); }
+    .valor-rojo { color: #ff3131 !important; text-shadow: 0px 0px 10px rgba(255,49,49,0.5); }
+
+    /* RELOJES */
+    .time-container { display: flex; gap: 10px; margin: 15px 0px; }
+    .time-elite {
+        flex: 1;
+        background: rgba(30, 39, 46, 0.95);
+        padding: 20px;
+        border-radius: 20px;
+        border: 2px solid #FFFFFF;
+        text-align: center;
+    }
+    
+    /* SEMAFORO CENTRAL */
+    .semaforo-container {
+        background: rgba(45, 52, 54, 0.9);
+        border-radius: 20px;
+        padding: 20px;
+        border: 1px solid rgba(255,255,255,0.1);
+        text-align: center;
+    }
+
+    .burbuja { 
+        min-width: 60px; height: 60px; border-radius: 50%; 
+        display: flex; align-items: center; justify-content: center; 
+        font-weight: bold; font-size: 16px; color: white; 
+        border: 2px solid rgba(255,255,255,0.2); 
+    }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización
+# 2. Inicialización de estados
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'transacciones' not in st.session_state: st.session_state.transacciones = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
@@ -62,7 +93,7 @@ now_str = datetime.now(py_tz).strftime("%H:%M")
 if 'hora_10x' not in st.session_state: st.session_state.hora_10x = now_str
 if 'hora_100x' not in st.session_state: st.session_state.hora_100x = "---"
 
-# --- FUNCIONES ---
+# --- LÓGICA ---
 def registrar_valor(valor_input=None):
     valor_raw = valor_input if valor_input is not None else st.session_state.entrada_manual
     impacto_saldo = 0.0
@@ -109,70 +140,86 @@ def get_minutos(hora_str):
 
 # --- SIDEBAR ---
 with st.sidebar:
-    st.header("🇵🇾 Configuración")
+    st.header("🦅 CONFIG ELITE")
     saldo_in = st.number_input("Saldo Inicial Gs.", value=50000, step=5000)
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
-    st.session_state.modo_sel = st.selectbox("Estrategia activa:", ["Conservadora (1.50x)", "Estrategia 2x2", "Cazador de Rosas (10x)", "Estrategia del Hueco 10x o +"])
-    st.markdown("---")
-    st.session_state.hora_10x = st.text_input("Editar Hora 10x:", value=st.session_state.hora_10x)
-    st.session_state.hora_100x = st.text_input("Editar Hora 100x:", value=st.session_state.hora_100x)
-    if st.button("🔄 Reiniciar App"):
+    st.session_state.modo_sel = st.selectbox("Estrategia:", ["Conservadora (1.50x)", "2x2", "Cazador (10x)", "Hueco 10x+"])
+    if st.button("🔄 Reset Total"):
         st.session_state.clear()
         st.rerun()
 
-# --- PANEL PRINCIPAL ---
-st.title("🦅 Aviator Elite PY v7.5")
+# --- INTERFAZ PRINCIPAL ---
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 Aviator Elite PY v7.7</h1>", unsafe_allow_html=True)
 
+# FILA 1: MÉTRICAS
 ganancia_actual = st.session_state.saldo_dinamico - saldo_in
-m1, m2, m3 = st.columns(3)
-with m1: st.markdown(f'<div class="metric-card card-saldo"><p>Saldo Actual</p><h2 class="brillo-neon">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
-with m2: st.markdown(f'<div class="metric-card"><p>Ganancia</p><h2 class="brillo-neon">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
-with m3: st.markdown(f'<div class="metric-card"><p>Pérdida</p><h2 class="brillo-neon">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
+col1, col2, col3 = st.columns(3)
 
-# Semáforo
-hueco = 0
-for v in reversed(st.session_state.historial):
-    if v >= 10: break
-    hueco += 1
-bg_sem = "#e91e63" if hueco >= 25 else "#2d3436"
-st.markdown(f'<div class="semaforo" style="background-color:{bg_sem}; color:white;">{"💖 HUECO ACTIVO" if hueco >= 25 else f"⏳ CARGANDO ({hueco}/25)"}</div>', unsafe_allow_html=True)
+with col1:
+    st.markdown(f'<div class="elite-card card-border-white"><p class="label-elite">Saldo Actual</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,} Gs</h2></div>', unsafe_allow_html=True)
+with col2:
+    st.markdown(f'<div class="elite-card card-border-green"><p class="label-elite">Ganancia</p><h2 class="valor-elite valor-verde">+{int(max(0, ganancia_actual)):,} Gs</h2></div>', unsafe_allow_html=True)
+with col3:
+    st.markdown(f'<div class="elite-card card-border-red"><p class="label-elite">Pérdida</p><h2 class="valor-elite valor-rojo">-{int(abs(min(0, ganancia_actual))):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# RELOJES RE-ENCENDIDOS (NEÓN)
-st.markdown(f"""
-    <div class="time-container">
-        <div class="time-card">
-            <div class="time-label">🌸 ÚLTIMA 10X</div>
-            <div class="brillo-neon val-tiempo">{st.session_state.hora_10x}</div>
-            <div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_10x)} min</div>
+# FILA 2: TIEMPOS Y SEMÁFORO
+t1, t2, t3 = st.columns([1, 1.2, 1])
+
+with t1:
+    st.markdown(f"""
+        <div class="time-elite">
+            <div class="label-elite">🌸 ÚLTIMA 10X</div>
+            <div class="valor-elite">{st.session_state.hora_10x}</div>
+            <div style="color:#00ff41; font-weight:bold;">⏱️ {get_minutos(st.session_state.hora_10x)} min</div>
         </div>
-        <div class="time-card">
-            <div class="time-label">👑 GIGANTE 100X</div>
-            <div class="brillo-neon val-tiempo">{st.session_state.hora_100x}</div>
-            <div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_100x)} min</div>
+    """, unsafe_allow_html=True)
+
+with t2:
+    hueco = 0
+    for v in reversed(st.session_state.historial):
+        if v >= 10: break
+        hueco += 1
+    texto_sem = "💖 HUECO ACTIVO" if hueco >= 25 else f"⏳ CARGANDO ({hueco}/25)"
+    color_sem = "#e91e63" if hueco >= 25 else "#2d3436"
+    
+    st.markdown(f"""
+        <div class="semaforo-container">
+            <div class="label-elite">SEMAFORO</div>
+            <div style="background:{color_sem}; padding:15px; border-radius:10px; font-weight:900; font-size:1.4rem;">{texto_sem}</div>
+            <br>
+            <div style="display: flex; justify-content: space-around;">
+                <button style="background:#3498db; border:none; border-radius:5px; color:white; padding:5px 15px;">1.0x</button>
+                <button style="background:#9b59b6; border:none; border-radius:5px; color:white; padding:5px 15px;">2.0x</button>
+                <button style="background:#e91e63; border:none; border-radius:5px; color:white; padding:5px 15px;">10x</button>
+            </div>
         </div>
-    </div>
-""", unsafe_allow_html=True)
+    """, unsafe_allow_html=True)
 
-st.write("### ⚡ Quick-Access")
-c1, c2, c3, c4 = st.columns(4)
-if c1.button("🟦 1.0x", use_container_width=True): registrar_valor(1.0)
-if c2.button("🟦 1.5x", use_container_width=True): registrar_valor(1.5)
-if c3.button("🟪 2.0x", use_container_width=True): registrar_valor(2.0)
-if c4.button("🌸 10x", use_container_width=True): registrar_valor(10.0)
+with t3:
+    st.markdown(f"""
+        <div class="time-elite">
+            <div class="label-elite">✈️ GIGANTE 100X</div>
+            <div class="valor-elite">{st.session_state.hora_100x}</div>
+            <div style="color:#00ff41; font-weight:bold;">⏱️ {get_minutos(st.session_state.hora_100x)} min</div>
+        </div>
+    """, unsafe_allow_html=True)
 
+# CONTROLES DE ENTRADA
 st.markdown("---")
-col_txt, col_ap, col_ck = st.columns([2, 1, 1])
-with col_txt: st.text_input("Manual + Enter:", key="entrada_manual", on_change=registrar_valor)
-with col_ap: st.number_input("Apuesta Gs:", value=2000.0, step=1000.0, key="valor_apuesta_manual")
-with col_ck: st.write("##"); st.checkbox("¿Aposté?", key="check_apuesta")
+c_in, c_ap, c_ck = st.columns([2, 1, 1])
+with c_in: st.text_input("VALOR MANUAL + ENTER:", key="entrada_manual", on_change=registrar_valor)
+with c_ap: st.number_input("APUESTA Gs:", value=2000.0, step=1000.0, key="valor_apuesta_manual")
+with c_ck: st.write("##"); st.checkbox("¿APOSTÉ?", key="check_apuesta")
 
+# HISTORIAL BURBUJAS
 if st.session_state.historial:
-    html_b = ""
+    st.write("**HISTORIAL RECIENTE**")
+    h_html = ""
     for val in reversed(st.session_state.historial[-15:]):
         color = "#3498db" if val < 2.0 else "#9b59b6" if val < 10.0 else "#e91e63"
-        html_b += f'<div class="burbuja" style="background-color:{color};">{val:.2f}</div>'
-    st.markdown(f'<div class="historial-container">{html_b}</div>', unsafe_allow_html=True)
+        h_html += f'<div class="burbuja" style="background-color:{color};">{val:.2f}</div>'
+    st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:10px;">{h_html}</div>', unsafe_allow_html=True)
 
-if st.button("⬅️ Borrar Último"): deshacer_ultimo()
+if st.button("⬅️ BORRAR ÚLTIMO MOVIMIENTO"): deshacer_ultimo()

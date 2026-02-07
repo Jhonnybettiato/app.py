@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v8.3", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v8.4", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS BLACK EDITION ---
 st.markdown("""
@@ -25,7 +25,7 @@ st.markdown("""
     .valor-verde { color: #00ff41 !important; }
     .valor-rojo { color: #ff3131 !important; }
     
-    /* ESTILO RELOJES */
+    /* ESTILO RELOJES EDITABLES */
     .time-box {
         background: #121212;
         padding: 15px;
@@ -33,7 +33,7 @@ st.markdown("""
         border: 2px solid #FFFFFF;
         text-align: center;
     }
-    .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1rem; margin-top: 5px; }
+    .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1.1rem; margin-top: 5px; }
     
     .burbuja { min-width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; color: white; border: 2px solid rgba(255,255,255,0.1); }
     </style>
@@ -46,17 +46,20 @@ now_str = datetime.now(py_tz).strftime("%H:%M")
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
-if 'hora_10x' not in st.session_state: st.session_state.hora_10x = now_str
-if 'hora_100x' not in st.session_state: st.session_state.hora_100x = "---"
+
+# Variables para los horarios (pueden ser editadas por el usuario)
+if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
+if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
 # --- FUNCIONES DE APOYO ---
 def get_minutos(hora_str):
-    if hora_str == "---" or not hora_str: return "?"
+    if hora_str == "---" or not hora_str or ":" not in hora_str: return "?"
     try:
         ahora = datetime.now(py_tz)
+        # Intentar parsear la hora ingresada
         h_r = py_tz.localize(datetime.strptime(hora_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day))
-        m = int((ahora - h_r).total_seconds() / 60)
-        return m if m >= 0 else (m + 1440)
+        diff = int((ahora - h_r).total_seconds() / 60)
+        return diff if diff >= 0 else (diff + 1440)
     except: return "?"
 
 def registrar_valor():
@@ -65,12 +68,13 @@ def registrar_valor():
             v_val = float(str(st.session_state.entrada_manual).replace(',', '.'))
             st.session_state.historial.append(v_val)
             
-            # Actualizar Relojes
+            # Auto-actualizar si el valor ingresado es alto
+            nueva_hora = datetime.now(py_tz).strftime("%H:%M")
             if v_val >= 100.0:
-                st.session_state.hora_100x = datetime.now(py_tz).strftime("%H:%M")
-                st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
+                st.session_state.h_100x_input = nueva_hora
+                st.session_state.h_10x_input = nueva_hora
             elif v_val >= 10.0:
-                st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
+                st.session_state.h_10x_input = nueva_hora
             
             # Lógica de Saldo
             if st.session_state.check_apuesta:
@@ -120,7 +124,7 @@ with st.sidebar:
         st.session_state.clear()
         st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.3</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.4</h1>", unsafe_allow_html=True)
 
 # FILA 1: MÉTRICAS FINANCIERAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
@@ -129,12 +133,17 @@ with c1: st.markdown(f'<div class="elite-card card-border-white"><p class="label
 with c2: st.markdown(f'<div class="elite-card card-border-green"><p class="label-elite">Ganancia</p><h2 class="valor-elite valor-verde">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card card-border-red"><p class="label-elite">Pérdida</p><h2 class="valor-elite valor-rojo">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# FILA 2: RELOJES (🌸 10x y ✈️ 100x)
+# FILA 2: RELOJES EDITABLES (🌸 10x y ✈️ 100x)
 t1, t2 = st.columns(2)
 with t1:
-    st.markdown(f"""<div class="time-box"><p class="label-elite">🌸 ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.hora_10x}</h2><p class="minutos-meta">⏱️ {get_minutos(st.session_state.hora_10x)} min</p></div>""", unsafe_allow_html=True)
+    st.markdown('<div class="time-box"><p class="label-elite">🌸 ÚLTIMA 10X (EDITABLE)</p>', unsafe_allow_html=True)
+    st.text_input("Hora 10x", key="h_10x_input", label_visibility="collapsed")
+    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
+
 with t2:
-    st.markdown(f"""<div class="time-box"><p class="label-elite">✈️ GIGANTE 100X</p><h2 class="valor-elite">{st.session_state.hora_100x}</h2><p class="minutos-meta">⏱️ {get_minutos(st.session_state.hora_100x)} min</p></div>""", unsafe_allow_html=True)
+    st.markdown('<div class="time-box"><p class="label-elite">✈️ GIGANTE 100X (EDITABLE)</p>', unsafe_allow_html=True)
+    st.text_input("Hora 100x", key="h_100x_input", label_visibility="collapsed")
+    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 
 # FILA 3: SEMÁFORO DE ESTRATEGIA
 txt_an, col_an = obtener_analisis()
@@ -143,7 +152,7 @@ st.markdown(f"""<div style="background:{col_an}; padding:20px; border-radius:15p
 # FILA 4: ENTRADAS
 st.markdown("<br>", unsafe_allow_html=True)
 col_in, col_ap, col_ck = st.columns([2, 1, 1])
-with col_in: st.text_input("VALOR DEL VUELO:", key="entrada_manual", on_change=registrar_valor)
+with col_in: st.text_input("VALOR DEL VUELO (ENTER):", key="entrada_manual", on_change=registrar_valor)
 with col_ap: st.number_input("APUESTA Gs:", value=2000, step=1000, key="valor_apuesta_manual")
 with col_ck: st.write("##"); st.checkbox("¿APOSTÉ?", key="check_apuesta")
 

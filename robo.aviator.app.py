@@ -3,18 +3,19 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v8.8", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v8.9", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
     .elite-card { 
-        background-color: #121212; padding: 20px; border-radius: 15px; 
+        background-color: #121212; padding: 15px; border-radius: 15px; 
         text-align: center; margin-bottom: 10px; border: 1px solid #333;
     }
     .label-elite { color: #FFFFFF !important; font-weight: 800; text-transform: uppercase; font-size: 0.8rem; }
     .valor-elite { color: #FFFFFF !important; font-size: 2.2rem; font-weight: 900; }
+    .minutos-meta { color: #00ff41; font-weight: bold; font-size: 1.1rem; margin-top: 5px; }
     .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; }
     .semaforo-texto { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
     .burbuja { 
@@ -36,13 +37,20 @@ if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = Tru
 if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = now_str
 if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 
-# --- FUNCIONES DE ACCIÓN ---
+# --- FUNCIONES CORE ---
+def get_minutos(hora_str):
+    if "---" in hora_str or ":" not in hora_str or not hora_str: return "?"
+    try:
+        ahora = datetime.now(py_tz)
+        h_r = py_tz.localize(datetime.strptime(hora_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day))
+        diff = int((ahora - h_r).total_seconds() / 60)
+        return diff if diff >= 0 else (diff + 1440)
+    except: return "?"
+
 def registrar_valor():
     if st.session_state.entrada_manual:
         try:
-            # Convertimos a float manteniendo todos los decimales
             v_val = float(str(st.session_state.entrada_manual).replace(',', '.'))
-            
             impacto = 0.0
             if st.session_state.check_apuesta:
                 ap = float(st.session_state.valor_apuesta_manual)
@@ -54,12 +62,14 @@ def registrar_valor():
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
             
+            # Actualizar relojes automáticamente
             nueva_h = datetime.now(py_tz).strftime("%H:%M")
-            if v_val >= 100: st.session_state.h_100x_input = nueva_h; st.session_state.h_10x_input = nueva_h
-            elif v_val >= 10: st.session_state.h_10x_input = nueva_h
-            
-        except ValueError:
-            st.error("Error: Ingresa un número válido")
+            if v_val >= 100: 
+                st.session_state.h_100x_input = nueva_h
+                st.session_state.h_10x_input = nueva_h
+            elif v_val >= 10: 
+                st.session_state.h_10x_input = nueva_h
+        except: pass
         st.session_state.entrada_manual = ""
 
 def deshacer_accion():
@@ -67,13 +77,11 @@ def deshacer_accion():
         ultimo_impacto = st.session_state.registro_saldos.pop()
         st.session_state.saldo_dinamico -= ultimo_impacto
         st.session_state.historial.pop()
-        st.toast("Ronda eliminada y saldo revertido")
 
 def obtener_semaforo():
     if len(st.session_state.historial) < 2: return "ESPERANDO DATOS", "#333"
     hist = st.session_state.historial
     est = st.session_state.modo_sel
-    
     if "10x" in est:
         rondas_sin = 0
         dist = 0
@@ -100,7 +108,7 @@ with st.sidebar:
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear(); st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.8</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.9</h1>", unsafe_allow_html=True)
 
 # FILA 1: MÉTRICAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
@@ -109,22 +117,22 @@ with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p
 with c2: st.markdown(f'<div class="elite-card" style="border:2px solid #00ff41;"><p class="label-elite">Ganancia</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(max(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card" style="border:2px solid #ff3131;"><p class="label-elite">Pérdida</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(min(0, ganancia_neta)):,} Gs</h2></div>', unsafe_allow_html=True)
 
-# FILA 2: RELOJES
+# FILA 2: RELOJES (RESTAURADOS)
 t1, t2 = st.columns(2)
 with t1:
-    st.markdown('<div class="elite-card" style="padding:10px;"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
+    st.markdown('<div class="elite-card" style="border:1px solid #fff;"><p class="label-elite">🌸 ÚLTIMA 10X</p>', unsafe_allow_html=True)
     st.text_input("H10", key="h_10x_input", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
 with t2:
-    st.markdown('<div class="elite-card" style="padding:10px;"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
+    st.markdown('<div class="elite-card" style="border:1px solid #fff;"><p class="label-elite">✈️ GIGANTE 100X</p>', unsafe_allow_html=True)
     st.text_input("H100", key="h_100x_input", label_visibility="collapsed")
-    st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown(f'<p class="minutos-meta">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 
 # FILA 3: SEMÁFORO
 txt_s, col_s = obtener_semaforo()
 st.markdown(f'<div class="semaforo-box" style="background-color:{col_s}; border:4px solid rgba(255,255,255,0.2);"><p class="semaforo-texto">{txt_s}</p></div>', unsafe_allow_html=True)
 
-# FILA 4: ENTRADA Y ACCIONES
+# FILA 4: ENTRADAS
 st.markdown("<br>", unsafe_allow_html=True)
 col_in, col_ap, col_ck, col_undo = st.columns([2, 1, 1, 1])
 with col_in: st.text_input("VUELO:", key="entrada_manual", on_change=registrar_valor)
@@ -132,7 +140,7 @@ with col_ap: st.number_input("APUESTA:", value=2000, step=1000, key="valor_apues
 with col_ck: st.write("##"); st.checkbox("¿APOSTÉ?", key="check_apuesta")
 with col_undo: st.write("##"); st.button("🔙 DESHACER", on_click=deshacer_accion)
 
-# HISTORIAL (Exactitud de decimales corregida)
+# HISTORIAL
 if st.session_state.historial:
     h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-10:])])
     st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:15px; background:#111; border-radius:15px; margin-top:20px; border:1px solid #333;">{h_html}</div>', unsafe_allow_html=True)

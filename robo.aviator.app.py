@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v8.7", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v8.8", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -17,7 +17,11 @@ st.markdown("""
     .valor-elite { color: #FFFFFF !important; font-size: 2.2rem; font-weight: 900; }
     .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; }
     .semaforo-texto { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
-    .burbuja { min-width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 900; color: white; }
+    .burbuja { 
+        min-width: 75px; height: 60px; border-radius: 30px; 
+        display: flex; align-items: center; justify-content: center; 
+        font-weight: 900; color: white; padding: 0 10px;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -36,23 +40,20 @@ if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
 def registrar_valor():
     if st.session_state.entrada_manual:
         try:
+            # Convertimos a float manteniendo todos los decimales
             v_val = float(str(st.session_state.entrada_manual).replace(',', '.'))
             
-            # Calcular impacto ANTES de guardar
             impacto = 0.0
             if st.session_state.check_apuesta:
                 ap = float(st.session_state.valor_apuesta_manual)
                 est = st.session_state.modo_sel
-                # Definir target según la estrategia seleccionada
                 target = 1.5 if "1.5" in est else 2.0 if "2x2" in est else 10.0
                 impacto = (ap * (target - 1)) if v_val >= target else -float(ap)
             
-            # Guardar en historial y registro de dinero
             st.session_state.historial.append(v_val)
             st.session_state.registro_saldos.append(impacto)
             st.session_state.saldo_dinamico += impacto
             
-            # Actualizar relojes
             nueva_h = datetime.now(py_tz).strftime("%H:%M")
             if v_val >= 100: st.session_state.h_100x_input = nueva_h; st.session_state.h_10x_input = nueva_h
             elif v_val >= 10: st.session_state.h_10x_input = nueva_h
@@ -63,15 +64,11 @@ def registrar_valor():
 
 def deshacer_accion():
     if st.session_state.historial:
-        # 1. Revertir el saldo usando el último impacto registrado
         ultimo_impacto = st.session_state.registro_saldos.pop()
         st.session_state.saldo_dinamico -= ultimo_impacto
-        
-        # 2. Eliminar del historial visual
         st.session_state.historial.pop()
-        st.toast("Última ronda eliminada y contabilidad corregida")
+        st.toast("Ronda eliminada y saldo revertido")
 
-# --- LÓGICA VISUAL ---
 def obtener_semaforo():
     if len(st.session_state.historial) < 2: return "ESPERANDO DATOS", "#333"
     hist = st.session_state.historial
@@ -103,9 +100,9 @@ with st.sidebar:
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear(); st.rerun()
 
-st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.7</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='text-align: center; color: white;'>🦅 AVIATOR ELITE v8.8</h1>", unsafe_allow_html=True)
 
-# FILA 1: MÉTRICAS (Contabilidad Real)
+# FILA 1: MÉTRICAS
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
 c1, c2, c3 = st.columns(3)
 with c1: st.markdown(f'<div class="elite-card" style="border:2px solid #fff;"><p class="label-elite">Saldo Actual</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,} Gs</h2></div>', unsafe_allow_html=True)
@@ -135,7 +132,7 @@ with col_ap: st.number_input("APUESTA:", value=2000, step=1000, key="valor_apues
 with col_ck: st.write("##"); st.checkbox("¿APOSTÉ?", key="check_apuesta")
 with col_undo: st.write("##"); st.button("🔙 DESHACER", on_click=deshacer_accion)
 
-# HISTORIAL
+# HISTORIAL (Exactitud de decimales corregida)
 if st.session_state.historial:
-    h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v:.1f}</div>' for v in reversed(st.session_state.historial[-10:])])
+    h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-10:])])
     st.markdown(f'<div style="display:flex; gap:10px; overflow-x:auto; padding:15px; background:#111; border-radius:15px; margin-top:20px; border:1px solid #333;">{h_html}</div>', unsafe_allow_html=True)

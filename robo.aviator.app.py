@@ -3,12 +3,21 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite PY v7.1", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite PY v7.2", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS ---
+# --- DISEÑO CSS UNIFICADO EN BLANCO ---
 st.markdown("""
     <style>
     .main { background-color: #0e1117; color: #ffffff; }
+    
+    /* Estilo para los números y valores principales */
+    .valor-blanco { 
+        color: #FFFFFF !important; 
+        text-shadow: 0px 0px 8px rgba(255,255,255,0.3);
+        margin: 0; 
+        font-weight: 900; 
+    }
+    
     .metric-card { 
         background-color: #1e272e; 
         padding: 20px; 
@@ -17,17 +26,24 @@ st.markdown("""
         border: 2px solid #374151;
         margin-bottom: 10px;
     }
-    .saldo-brillante { color: #FFFFFF !important; text-shadow: 0px 0px 10px rgba(255,255,255,0.3); margin: 0; font-size: 2.4rem; font-weight: 900; }
-    .ganancia-viva { color: #00FF41 !important; text-shadow: 0px 0px 8px rgba(0,255,65,0.2); margin: 0; font-size: 2.4rem; font-weight: 900; }
-    .perdida-viva { color: #FF3131 !important; margin: 0; font-size: 2.4rem; font-weight: 900; }
+    .metric-card h2 { font-size: 2.4rem; }
+    .metric-card p { margin: 0; color: #bdc3c7; font-size: 0.9rem; font-weight: bold; text-transform: uppercase; }
     
+    /* Contenedores de tiempo */
     .time-container { display: flex; gap: 10px; margin: 10px 0px; }
-    .time-card { flex: 1; background-color: #1e272e; padding: 15px; border-radius: 10px; text-align: center; border: 2px solid #ef5777; }
-    .time-card.giant { border: 2px solid #f1c40f; }
-    .val-rosa { color: #fd79a8 !important; font-size: 1.6rem; font-weight: 900; text-shadow: 0px 0px 10px rgba(253,121,168,0.4); }
-    .val-oro { color: #f1c40f !important; font-size: 1.6rem; font-weight: 900; text-shadow: 0px 0px 10px rgba(241,196,15,0.4); }
-    
-    .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; border: 2px solid rgba(255,255,255,0.1); }
+    .time-card { 
+        flex: 1; 
+        background-color: #1e272e; 
+        padding: 15px; 
+        border-radius: 10px; 
+        text-align: center; 
+        border: 1px solid #ffffff30; 
+    }
+    .time-label { font-size: 0.85rem; font-weight: bold; color: #bdc3c7; margin-bottom: 5px; }
+    .val-tiempo { font-size: 1.8rem; }
+    .time-elapsed { font-size: 1rem; color: #00ff41; font-weight: bold; margin-top: 5px; }
+
+    .semaforo { padding: 20px; border-radius: 15px; text-align: center; font-weight: 900; font-size: 1.6rem; margin: 15px 0px; border: 1px solid rgba(255,255,255,0.1); }
     .historial-container { display: flex; flex-direction: row; flex-wrap: nowrap; overflow-x: auto; gap: 10px; padding: 15px 5px; background: #00000050; border-radius: 10px; }
     .burbuja { min-width: 55px; height: 55px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 14px; color: white; border: 2px solid #ffffff20; }
     </style>
@@ -45,7 +61,7 @@ now_str = datetime.now(py_tz).strftime("%H:%M")
 if 'hora_10x' not in st.session_state: st.session_state.hora_10x = now_str
 if 'hora_100x' not in st.session_state: st.session_state.hora_100x = "---"
 
-# --- REVISIÓN DE ESTRATEGIAS (Lógica v7.1) ---
+# --- FUNCIONES ---
 def registrar_valor(valor_input=None):
     valor_raw = valor_input if valor_input is not None else st.session_state.entrada_manual
     impacto_saldo = 0.0
@@ -53,35 +69,23 @@ def registrar_valor(valor_input=None):
         try:
             v_val = float(str(valor_raw).replace(',', '.'))
             st.session_state.historial.append(v_val)
-            
-            # Actualizar Tiempos
             if v_val >= 100.0:
                 st.session_state.hora_100x = datetime.now(py_tz).strftime("%H:%M")
                 st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
             elif v_val >= 10.0:
                 st.session_state.hora_10x = datetime.now(py_tz).strftime("%H:%M")
             
-            # --- CÁLCULO DE APUESTA SEGÚN ESTRATEGIA ---
             if st.session_state.check_apuesta:
                 ap_real = float(st.session_state.valor_apuesta_manual)
                 modo = st.session_state.modo_sel
+                if "1.50x" in modo: target = 1.50
+                elif "2x2" in modo: target = 2.0
+                else: target = 10.0
                 
-                # Definición de Objetivo (Target)
-                if "1.50x" in modo:
-                    target = 1.50
-                elif "2x2" in modo:
-                    target = 2.0
-                else: # Cubre "Cazador de Rosas" y "Hueco"
-                    target = 10.0
-                
-                # Ejecución del pago
-                resultado_ronda = -ap_real # Se descuenta la apuesta
-                if v_val >= target:
-                    resultado_ronda += (ap_real * target) # Se suma el premio
-                
-                st.session_state.saldo_dinamico += resultado_ronda
-                impacto_saldo = resultado_ronda
-            
+                res = -ap_real
+                if v_val >= target: res += (ap_real * target)
+                st.session_state.saldo_dinamico += res
+                impacto_saldo = res
             st.session_state.transacciones.append(impacto_saldo)
         except: pass
         st.session_state.entrada_manual = ""
@@ -109,30 +113,22 @@ with st.sidebar:
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
-    
-    st.session_state.modo_sel = st.selectbox("Estrategia activa:", [
-        "Conservadora (1.50x)", 
-        "Estrategia 2x2", 
-        "Cazador de Rosas (10x)",
-        "Estrategia del Hueco 10x o +"
-    ])
-    
+    st.session_state.modo_sel = st.selectbox("Estrategia activa:", ["Conservadora (1.50x)", "Estrategia 2x2", "Cazador de Rosas (10x)", "Estrategia del Hueco 10x o +"])
     st.markdown("---")
     st.session_state.hora_10x = st.text_input("Editar Hora 10x:", value=st.session_state.hora_10x)
     st.session_state.hora_100x = st.text_input("Editar Hora 100x:", value=st.session_state.hora_100x)
-    
     if st.button("🔄 Reiniciar App"):
         st.session_state.clear()
         st.rerun()
 
 # --- INTERFAZ ---
-st.title("🦅 Aviator Elite PY v7.1")
+st.title("🦅 Aviator Elite PY v7.2")
 
 ganancia_actual = st.session_state.saldo_dinamico - saldo_in
 m1, m2, m3 = st.columns(3)
-with m1: st.markdown(f'<div class="metric-card"><p>Saldo Actual</p><h2 class="saldo-brillante">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
-with m2: st.markdown(f'<div class="metric-card"><p>Ganancia</p><h2 class="ganancia-viva">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
-with m3: st.markdown(f'<div class="metric-card"><p>Pérdida</p><h2 class="perdida-viva">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
+with m1: st.markdown(f'<div class="metric-card"><p>Saldo Actual</p><h2 class="valor-blanco">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
+with m2: st.markdown(f'<div class="metric-card"><p>Ganancia</p><h2 class="valor-blanco">+{int(max(0, ganancia_actual)):,}</h2></div>', unsafe_allow_html=True)
+with m3: st.markdown(f'<div class="metric-card"><p>Pérdida</p><h2 class="valor-blanco">-{int(abs(min(0, ganancia_actual))):,}</h2></div>', unsafe_allow_html=True)
 
 # Semáforo
 hueco = 0
@@ -142,11 +138,19 @@ for v in reversed(st.session_state.historial):
 bg_sem = "#e91e63" if hueco >= 25 else "#2d3436"
 st.markdown(f'<div class="semaforo" style="background-color:{bg_sem}; color:white;">{"💖 HUECO ACTIVO" if hueco >= 25 else f"⏳ CARGANDO ({hueco}/25)"}</div>', unsafe_allow_html=True)
 
-# Tiempos
+# TIEMPOS EN BLANCO
 st.markdown(f"""
     <div class="time-container">
-        <div class="time-card"><div class="time-label">🌸 Última 10x</div><div class="val-rosa">{st.session_state.hora_10x} hs</div><div style="color:#00ff41;font-weight:bold;">⏱️ {get_minutos(st.session_state.hora_10x)} min</div></div>
-        <div class="time-card giant"><div class="time-label">👑 Gigante 100x</div><div class="val-oro">{st.session_state.hora_100x} hs</div><div style="color:#00ff41;font-weight:bold;">⏱️ {get_minutos(st.session_state.hora_100x)} min</div></div>
+        <div class="time-card">
+            <div class="time-label">🌸 Última 10x</div>
+            <div class="valor-blanco val-tiempo">{st.session_state.hora_10x}</div>
+            <div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_10x)} min</div>
+        </div>
+        <div class="time-card">
+            <div class="time-label">👑 Gigante 100x</div>
+            <div class="valor-blanco val-tiempo">{st.session_state.hora_100x}</div>
+            <div class="time-elapsed">⏱️ {get_minutos(st.session_state.hora_100x)} min</div>
+        </div>
     </div>
 """, unsafe_allow_html=True)
 

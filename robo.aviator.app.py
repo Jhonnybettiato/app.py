@@ -136,12 +136,48 @@ c4.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# Semáforo de conteo
+# --- SEMÁFORO DE ESTRATEGIA (RONDAS SIN ROSA) ---
 sin_rosa = 0
 for v in reversed(st.session_state.historial):
     if v >= 10.0: break
     sin_rosa += 1
-st.markdown(f'<div style="background-color:#111; padding:15px; border-radius:10px; text-align:center; margin-bottom:15px; border: 1px solid #333;"><h3 style="color:white; margin:0;">⏳ RONDAS SIN ROSA: {sin_rosa}</h3></div>', unsafe_allow_html=True)
+
+# Lógica de colores y mensajes
+if sin_rosa <= 20:
+    color_semaforo = "#ff4b4b"  # Rojo
+    mensaje_accion = "🚫 ESPERAR - ZONA DE RIESGO"
+    texto_color = "white"
+elif 21 <= sin_rosa <= 30:
+    color_semaforo = "#ffeb3b"  # Amarillo
+    mensaje_accion = "⚠️ ANALIZANDO - POSIBLE ENTRADA"
+    texto_color = "black"
+elif 31 <= sin_rosa <= 40:
+    color_semaforo = "#00ff41"  # Verde
+    mensaje_accion = "🚀 ENTRADA CONFIRMADA - ¡VUELO ELITE!"
+    texto_color = "black"
+else:
+    color_semaforo = "#9b59b6"  # Púrpura (Exceso de rondas)
+    mensaje_accion = "🔥 ALERTA MÁXIMA - PATRÓN EXTENDIDO"
+    texto_color = "white"
+
+st.markdown(f"""
+    <div style="
+        background-color: {color_semaforo}; 
+        padding: 20px; 
+        border-radius: 15px; 
+        text-align: center; 
+        margin-bottom: 15px; 
+        border: 2px solid rgba(255,255,255,0.2);
+        box-shadow: 0px 4px 15px {color_semaforo}66;
+    ">
+        <h2 style="color: {texto_color}; margin: 0; font-weight: 900; letter-spacing: 1px;">
+            RONDAS SIN ROSA: {sin_rosa}
+        </h2>
+        <h4 style="color: {texto_color}; margin: 5px 0 0 0; opacity: 0.9; font-weight: 700;">
+            {mensaje_accion}
+        </h4>
+    </div>
+""", unsafe_allow_html=True)
 
 # PANEL DE ENTRADA
 st.markdown('<div class="elite-card">', unsafe_allow_html=True)

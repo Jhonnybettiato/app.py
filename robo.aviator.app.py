@@ -86,10 +86,25 @@ def registrar():
 # --- BARRA LATERAL ---
 with st.sidebar:
     st.markdown("### ⚙️ AJUSTES")
-    st.session_state.cap_ini = st.number_input("Capital Inicial", value=int(st.session_state.cap_ini))
+    
+    # Usamos una key diferente para el widget
+    nuevo_cap = st.number_input("Capital Inicial", 
+                                value=float(st.session_state.cap_ini),
+                                step=1000.0,
+                                key="input_cap_ini")
+    
+    # Si el valor del widget cambia, actualizamos el capital y recalculamos saldo
+    if nuevo_cap != st.session_state.cap_ini:
+        diferencia = nuevo_cap - st.session_state.cap_ini
+        st.session_state.cap_ini = nuevo_cap
+        st.session_state.saldo_dinamico += diferencia
+        st.rerun()
+
     st.session_state.h_10x = st.text_input("Hora 10x", value=st.session_state.h_10x)
     st.session_state.h_100x = st.text_input("Hora 100x", value=st.session_state.h_100x)
+    
     if st.button("🔄 REINICIAR"):
+        # Limpiamos todo excepto el capital inicial si quieres mantenerlo
         st.session_state.clear()
         st.rerun()
 

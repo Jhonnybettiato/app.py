@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.5.4", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.5.5", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -32,7 +32,7 @@ if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = Tru
 if 'h_10x' not in st.session_state: st.session_state.h_10x = "00:00"
 if 'h_100x' not in st.session_state: st.session_state.h_100x = "---"
 
-# --- LÓGICA CORE ---
+# --- FUNCIONES ---
 def get_mins(h_str):
     if "---" in h_str or ":" not in h_str: return "?"
     try:
@@ -44,7 +44,6 @@ def get_mins(h_str):
 
 def get_sin_rosa():
     if not st.session_state.historial: return 0
-    # Chequeamos si el último valor registrado es rosa (>= 10)
     if float(st.session_state.historial[-1]) >= 10.0: return 0
     c = 0
     for v in reversed(st.session_state.historial):
@@ -62,7 +61,7 @@ with st.sidebar:
     if st.button("🔄 RESET COMPLETO"): st.session_state.clear(); st.rerun()
 
 # --- APP ---
-st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.4</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.5</div>', unsafe_allow_html=True)
 
 sin_rosa = get_sin_rosa()
 ganancia = st.session_state.saldo_dinamico - s_ini
@@ -72,7 +71,7 @@ c1, c2, c3, c4 = st.columns(4)
 with c1: st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
 with c2:
     cl_gan = "win-box" if ganancia >= 0 else "loss-box"
-    st.markdown(f'<div class="{cl_gan}"><p class="label-elite">RESULTADO</p><h2 class="valor-elite">{int(ganancia):,}+</h2></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="{cl_gan}"><p class="label-elite">RESULTADO</p><h2 class="valor-elite">{int(ganancia):,}</h2></div>', unsafe_allow_html=True)
 with c3: st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.h_10x}</h2><p style="color:#0f4;font-size:0.8rem;">⏱️ {get_mins(st.session_state.h_10x)} min</p></div>', unsafe_allow_html=True)
 with c4: st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 100X</p><h2 class="valor-elite">{st.session_state.h_100x}</h2><p style="color:#0f4;font-size:0.8rem;">⏱️ {get_mins(st.session_state.h_100x)} min</p></div>', unsafe_allow_html=True)
 
@@ -84,32 +83,30 @@ else: t, col, anim = f"⏳ ESPERAR ({sin_rosa}/30)", "#333", ""
 
 st.markdown(f'<div class="semaforo {anim}" style="background-color:{col};"><p class="semaforo-txt">{t}</p></div>', unsafe_allow_html=True)
 
-# --- PANEL DE REGISTRO (CORREGIDO) ---
-# Usamos columnas fuera de un form para evitar el problema del "valor congelado" en el historial
-st.markdown('<div class="elite-card">', unsafe_allow_html=True)
-r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
-with r1: valor_input = st.number_input("MULTIPLICADOR FINAL", min_value=1.0, step=0.01, format="%.2f", key="val_vuelo")
-with r2: apuesta_input = st.number_input("APUESTA Gs.", value=2000, step=1000, key="val_apuesta")
-with r3: st.write("##"); apostado = st.checkbox("¿APOSTADO?", key="chk_apuesta")
-with r4: st.write("##"); btn_reg = st.button("REGISTRAR 🚀", use_container_width=True)
+# --- PANEL DE REGISTRO CON ENTER HABILITADO ---
+with st.form("motor_registro", clear_on_submit=True):
+    r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
+    with r1: valor_vuelo = st.number_input("MULTIPLICADOR FINAL", min_value=1.0, step=0.01, format="%.2f")
+    with r2: valor_apuesta = st.number_input("APUESTA Gs.", value=2000, step=1000)
+    with r3: st.write("##"); valor_chk = st.checkbox("¿APOSTADO?")
+    with r4: st.write("##"); btn_form = st.form_submit_button("REGISTRAR 🚀", use_container_width=True)
 
-if btn_reg:
-    # 1. Calcular impacto financiero
-    imp = (apuesta_input * 9) if (apostado and valor_input >= 10) else (-float(apuesta_input) if apostado else 0.0)
-    
-    # 2. Actualizar estados
-    st.session_state.historial.append(valor_input)
-    st.session_state.registro_saldos.append(imp)
-    st.session_state.saldo_dinamico += imp
-    
-    # 3. Relojes de rosas
-    if valor_input >= 10:
-        ahora_r = datetime.now(py_tz).strftime("%H:%M")
-        st.session_state.h_10x = ahora_r
-        if valor_input >= 100: st.session_state.h_100x = ahora_r
-    
-    st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
+    if btn_form:
+        # Calcular impacto
+        imp = (valor_apuesta * 9) if (valor_chk and valor_vuelo >= 10) else (-float(valor_apuesta) if valor_chk else 0.0)
+        
+        # Guardar datos
+        st.session_state.historial.append(valor_vuelo)
+        st.session_state.registro_saldos.append(imp)
+        st.session_state.saldo_dinamico += imp
+        
+        # Actualizar horas
+        if valor_vuelo >= 10:
+            ahora_f = datetime.now(py_tz).strftime("%H:%M")
+            st.session_state.h_10x = ahora_f
+            if valor_vuelo >= 100: st.session_state.h_100x = ahora_f
+        
+        st.rerun()
 
 # HISTORIAL DE BURBUJAS
 if st.session_state.historial:

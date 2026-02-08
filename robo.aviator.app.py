@@ -1,10 +1,9 @@
 import streamlit as st
 from datetime import datetime
 import pytz
-import streamlit.components.v1 as components
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.6.2", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.6.3", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -17,37 +16,45 @@ st.markdown("""
     .win-box { background-color: #003311; border: 2px solid #00ff41; padding: 15px; border-radius: 15px; text-align: center; }
     .loss-box { background-color: #330000; border: 2px solid #ff3131; padding: 15px; border-radius: 15px; text-align: center; }
     
-    /* Animación del Semáforo */
     @keyframes pulse { 0% { box-shadow: 0 0 5px #2ecc71; } 50% { box-shadow: 0 0 30px #2ecc71; } 100% { box-shadow: 0 0 5px #2ecc71; } }
     .semaforo { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; transition: 0.3s; }
     .fuego { animation: pulse 1s infinite; border: 2px solid #fff; }
+    .semaforo-txt { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
     
-    /* EFECTO PARPADEO EN EL INPUT ACTIVO */
+    /* Resaltado del campo de entrada */
     div[data-baseweb="input"] {
         border: 2px solid #00ff41 !important;
-        box-shadow: 0 0 10px #00ff41;
     }
 
     .burbuja { min-width: 65px; height: 60px; border-radius: 30px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: white; margin-right: 6px; font-size: 0.95rem; }
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización
+# 2. Inicialización de Estados
 py_tz = pytz.timezone('America/Asuncion')
-ahora_inicial = datetime.now(py_tz).strftime("%H:%M")
-
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'registro_saldos' not in st.session_state: st.session_state.registro_saldos = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
-if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
-if 'h_10x' not in st.session_state: st.session_state.h_10x = ahora_inicial
+if 'h_10x' not in st.session_state: st.session_state.h_10x = datetime.now(py_tz).strftime("%H:%M")
 if 'h_100x' not in st.session_state: st.session_state.h_100x = "---"
 if 'key_reset' not in st.session_state: st.session_state.key_reset = 0
 
-# --- LÓGICA DE REGISTRO ---
+# --- LÓGICA DE CONTEO (ESTO RECUPERA EL CONTADOR) ---
+def calcular_sin_rosa():
+    if not st.session_state.historial: return 0
+    # Si el último es rosa, el contador debe ser 0
+    if float(st.session_state.historial[-1]) >= 10.0: return 0
+    
+    contador = 0
+    for v in reversed(st.session_state.historial):
+        if float(v) >= 10.0: break
+        contador += 1
+    return contador
+
+# --- REGISTRO ---
 def registrar_vuelo():
-    key_actual = f"vuelo_input_{st.session_state.key_reset}"
-    val_raw = st.session_state[key_actual].replace(',', '.')
+    key_input = f"vuelo_input_{st.session_state.key_reset}"
+    val_raw = st.session_state[key_input].replace(',', '.')
     
     if val_raw.strip():
         try:
@@ -55,75 +62,41 @@ def registrar_vuelo():
             a_vuelo = st.session_state.input_apuesta
             chk_ap = st.session_state.input_chk
             
+            # Cálculo de saldo
             imp = (a_vuelo * 9) if (chk_ap and v_vuelo >= 10.0) else (-float(a_vuelo) if chk_ap else 0.0)
             
+            # Guardar en listas
             st.session_state.historial.append(v_vuelo)
             st.session_state.registro_saldos.append(imp)
             st.session_state.saldo_dinamico += imp
             
+            # Tiempos
             if v_vuelo >= 10.0:
                 ahora_f = datetime.now(py_tz).strftime("%H:%M")
                 st.session_state.h_10x = ahora_f
                 if v_vuelo >= 100.0: st.session_state.h_100x = ahora_f
-                
+            
+            # Reset de la caja de texto
             st.session_state.key_reset += 1
-        except: pass
+        except:
+            pass
 
-# --- FUNCIONES DE TIEMPO ---
-def get_mins(h_str):
-    if "---" in h_str or ":" not in h_str: return "?"
-    try:
-        ahora = datetime.now(py_tz)
-        h_f = py_tz.localize(datetime.strptime(h_str, "%H:%M").replace(year=ahora.year, month=ahora.month, day=ahora.day))
-        d = int((ahora - h_f).total_seconds() / 60)
-        return d if d >= 0 else (d + 1440)
-    except: return "?"
+# --- DASHBOARD ---
+st.markdown(f'<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.6.3</div>', unsafe_allow_html=True)
 
-def get_sin_rosa():
-    if not st.session_state.historial: return 0
-    if float(st.session_state.historial[-1]) >= 10.0: return 0
-    c = 0
-    for v in reversed(st.session_state.historial):
-        if float(v) >= 10.0: break
-        c += 1
-    return c
+# Calculamos antes de mostrar
+sin_rosa = calcular_sin_rosa()
 
-# --- BARRA LATERAL ---
-with st.sidebar:
-    st.markdown("### ⚙️ AJUSTES PRO")
-    s_ini = st.number_input("Capital Inicial", value=50000, step=5000)
-    if st.session_state.primer_inicio:
-        st.session_state.saldo_dinamico = float(s_ini)
-        st.session_state.primer_inicio = False
-    
-    st.divider()
-    st.markdown("### 🕒 EDITAR HORARIOS")
-    new_h10 = st.text_input("Editar Última 10x", value=st.session_state.h_10x)
-    new_h100 = st.text_input("Editar Última 100x", value=st.session_state.h_100x)
-    
-    if st.button("✅ APLICAR"):
-        st.session_state.h_10x = new_h10
-        st.session_state.h_100x = new_h100
-        st.rerun()
-
-    if st.button("🔄 RESET COMPLETO"): st.session_state.clear(); st.rerun()
-
-# --- INTERFAZ PRINCIPAL ---
-st.markdown(f'<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.6.2</div>', unsafe_allow_html=True)
-
-sin_rosa = get_sin_rosa()
-ganancia = st.session_state.saldo_dinamico - s_ini
-
-# DASHBOARD
 c1, c2, c3, c4 = st.columns(4)
 with c1: st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
 with c2:
+    ganancia = st.session_state.saldo_dinamico - 50000 # Capital base por defecto
     cl_gan = "win-box" if ganancia >= 0 else "loss-box"
     st.markdown(f'<div class="{cl_gan}"><p class="label-elite">RESULTADO</p><h2 class="valor-elite">{int(ganancia):,}</h2></div>', unsafe_allow_html=True)
-with c3: st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.h_10x}</h2><p style="color:#0f4;font-size:0.8rem;">⏱️ {get_mins(st.session_state.h_10x)} min</p></div>', unsafe_allow_html=True)
-with c4: st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 100X</p><h2 class="valor-elite">{st.session_state.h_100x}</h2><p style="color:#0f4;font-size:0.8rem;">⏱️ {get_mins(st.session_state.h_100x)} min</p></div>', unsafe_allow_html=True)
+with c3: st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.h_10x}</h2></div>', unsafe_allow_html=True)
+with c4: st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 100X</p><h2 class="valor-elite">{st.session_state.h_100x}</h2></div>', unsafe_allow_html=True)
 
-# SEMÁFORO
+# SEMÁFORO (CONTADOR RECUPERADO)
 if sin_rosa >= 40: t, col, anim = "🛑 STOP LOSS", "#ff3131", ""
 elif sin_rosa >= 30: t, col, anim = "🔥 ENTRAR AHORA", "#27ae60", "fuego"
 elif sin_rosa >= 25: t, col, anim = "🟡 PREPARAR", "#f39c12", ""
@@ -131,44 +104,39 @@ else: t, col, anim = f"⏳ ESPERAR ({sin_rosa}/30)", "#333", ""
 
 st.markdown(f'<div class="semaforo {anim}" style="background-color:{col};"><p class="semaforo-txt">{t}</p></div>', unsafe_allow_html=True)
 
-# --- PANEL DE REGISTRO ---
+# --- CAJA DE REGISTRO ---
 st.markdown('<div class="elite-card">', unsafe_allow_html=True)
 r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
 
-with r1: 
-    # Usamos text_input vacío
-    st.text_input("MULTIPLICADOR FINAL", value="", 
-                  placeholder="Escribe y Enter...",
-                  key=f"vuelo_input_{st.session_state.key_reset}", 
-                  on_change=registrar_vuelo)
+with r1:
+    # La clave es que el value esté vacío y el on_change dispare el foco al recargar
+    st.text_input(
+        "MULTIPLICADOR FINAL", 
+        value="", 
+        placeholder="Escribe número y presiona Enter...",
+        key=f"vuelo_input_{st.session_state.key_reset}",
+        on_change=registrar_vuelo
+    )
 with r2: st.number_input("APUESTA Gs.", value=2000, step=1000, key="input_apuesta")
 with r3: st.write("##"); st.checkbox("¿APOSTADO?", key="input_chk")
 with r4: st.write("##"); st.button("REGISTRAR 🚀", on_click=registrar_vuelo)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- INYECCIÓN DE JAVASCRIPT PARA AUTO-FOCUS ---
-# Este script busca el campo de texto y le da el foco automáticamente al cargar
-components.html(
-    f"""
-    <script>
-        var input = window.parent.document.querySelectorAll("input[type='text']");
-        for (var i = 0; i < input.length; i++) {{
-            if (input[i].placeholder === "Escribe y Enter...") {{
-                input[i].focus();
-            }}
-        }}
-    </script>
-    """,
-    height=0,
-)
-
-# HISTORIAL
+# HISTORIAL DE BURBUJAS
 if st.session_state.historial:
     h_h = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v:.2f}</div>' for v in reversed(st.session_state.historial[-15:])])
     st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:20px; border: 1px solid #333; margin-top:10px;">{h_h}</div>', unsafe_allow_html=True)
 
+# BOTÓN DE DESHACER
 if st.button("🔙 DESHACER ÚLTIMO", use_container_width=True):
     if st.session_state.historial:
         st.session_state.historial.pop()
         st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
+        st.rerun()
+
+# --- BARRA LATERAL AJUSTES ---
+with st.sidebar:
+    st.header("⚙️ CONFIG")
+    if st.button("🔄 RESET COMPLETO"):
+        st.session_state.clear()
         st.rerun()

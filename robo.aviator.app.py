@@ -1,9 +1,10 @@
 import streamlit as st
 from datetime import datetime
 import pytz
+import streamlit.components.v1 as components
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.6.1", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.6.2", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -20,16 +21,11 @@ st.markdown("""
     @keyframes pulse { 0% { box-shadow: 0 0 5px #2ecc71; } 50% { box-shadow: 0 0 30px #2ecc71; } 100% { box-shadow: 0 0 5px #2ecc71; } }
     .semaforo { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; transition: 0.3s; }
     .fuego { animation: pulse 1s infinite; border: 2px solid #fff; }
-    .semaforo-txt { font-size: 2rem; font-weight: 900; color: white; margin: 0; }
     
-    /* EFECTO PARPADEO FOCO */
-    @keyframes borderBlink {
-        0% { border-color: #333; }
-        50% { border-color: #00ff41; box-shadow: 0 0 8px #00ff41; }
-        100% { border-color: #333; }
-    }
+    /* EFECTO PARPADEO EN EL INPUT ACTIVO */
     div[data-baseweb="input"] {
-        animation: borderBlink 1.5s infinite;
+        border: 2px solid #00ff41 !important;
+        box-shadow: 0 0 10px #00ff41;
     }
 
     .burbuja { min-width: 65px; height: 60px; border-radius: 30px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: white; margin-right: 6px; font-size: 0.95rem; }
@@ -48,32 +44,30 @@ if 'h_10x' not in st.session_state: st.session_state.h_10x = ahora_inicial
 if 'h_100x' not in st.session_state: st.session_state.h_100x = "---"
 if 'key_reset' not in st.session_state: st.session_state.key_reset = 0
 
-# --- LÓGICA DE REGISTRO MEJORADA (SOLUCIÓN AL 1.00) ---
+# --- LÓGICA DE REGISTRO ---
 def registrar_vuelo():
     key_actual = f"vuelo_input_{st.session_state.key_reset}"
     val_raw = st.session_state[key_actual].replace(',', '.')
     
-    try:
-        v_vuelo = float(val_raw)
-        a_vuelo = st.session_state.input_apuesta
-        chk_ap = st.session_state.input_chk
-        
-        imp = (a_vuelo * 9) if (chk_ap and v_vuelo >= 10.0) else (-float(a_vuelo) if chk_ap else 0.0)
-        
-        st.session_state.historial.append(v_vuelo)
-        st.session_state.registro_saldos.append(imp)
-        st.session_state.saldo_dinamico += imp
-        
-        if v_vuelo >= 10.0:
-            ahora_f = datetime.now(py_tz).strftime("%H:%M")
-            st.session_state.h_10x = ahora_f
-            if v_vuelo >= 100.0: st.session_state.h_100x = ahora_f
+    if val_raw.strip():
+        try:
+            v_vuelo = float(val_raw)
+            a_vuelo = st.session_state.input_apuesta
+            chk_ap = st.session_state.input_chk
             
-        # Al incrementar la key y tener el campo vacío, el foco vuelve listo para escribir
-        st.session_state.key_reset += 1
-    except ValueError:
-        # Si el usuario presiona enter sin escribir nada, no hacemos nada
-        pass
+            imp = (a_vuelo * 9) if (chk_ap and v_vuelo >= 10.0) else (-float(a_vuelo) if chk_ap else 0.0)
+            
+            st.session_state.historial.append(v_vuelo)
+            st.session_state.registro_saldos.append(imp)
+            st.session_state.saldo_dinamico += imp
+            
+            if v_vuelo >= 10.0:
+                ahora_f = datetime.now(py_tz).strftime("%H:%M")
+                st.session_state.h_10x = ahora_f
+                if v_vuelo >= 100.0: st.session_state.h_100x = ahora_f
+                
+            st.session_state.key_reset += 1
+        except: pass
 
 # --- FUNCIONES DE TIEMPO ---
 def get_mins(h_str):
@@ -115,7 +109,7 @@ with st.sidebar:
     if st.button("🔄 RESET COMPLETO"): st.session_state.clear(); st.rerun()
 
 # --- INTERFAZ PRINCIPAL ---
-st.markdown(f'<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.6.1</div>', unsafe_allow_html=True)
+st.markdown(f'<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.6.2</div>', unsafe_allow_html=True)
 
 sin_rosa = get_sin_rosa()
 ganancia = st.session_state.saldo_dinamico - s_ini
@@ -137,12 +131,12 @@ else: t, col, anim = f"⏳ ESPERAR ({sin_rosa}/30)", "#333", ""
 
 st.markdown(f'<div class="semaforo {anim}" style="background-color:{col};"><p class="semaforo-txt">{t}</p></div>', unsafe_allow_html=True)
 
-# --- PANEL DE REGISTRO SIN EL "1.00" MOLESTO ---
+# --- PANEL DE REGISTRO ---
 st.markdown('<div class="elite-card">', unsafe_allow_html=True)
 r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
 
 with r1: 
-    # Usamos text_input vacío por defecto. Al dar enter se limpia y el cursor se queda ahí.
+    # Usamos text_input vacío
     st.text_input("MULTIPLICADOR FINAL", value="", 
                   placeholder="Escribe y Enter...",
                   key=f"vuelo_input_{st.session_state.key_reset}", 
@@ -151,6 +145,22 @@ with r2: st.number_input("APUESTA Gs.", value=2000, step=1000, key="input_apuest
 with r3: st.write("##"); st.checkbox("¿APOSTADO?", key="input_chk")
 with r4: st.write("##"); st.button("REGISTRAR 🚀", on_click=registrar_vuelo)
 st.markdown('</div>', unsafe_allow_html=True)
+
+# --- INYECCIÓN DE JAVASCRIPT PARA AUTO-FOCUS ---
+# Este script busca el campo de texto y le da el foco automáticamente al cargar
+components.html(
+    f"""
+    <script>
+        var input = window.parent.document.querySelectorAll("input[type='text']");
+        for (var i = 0; i < input.length; i++) {{
+            if (input[i].placeholder === "Escribe y Enter...") {{
+                input[i].focus();
+            }}
+        }}
+    </script>
+    """,
+    height=0,
+)
 
 # HISTORIAL
 if st.session_state.historial:

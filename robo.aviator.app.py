@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.5.5", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.5.6", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -61,7 +61,7 @@ with st.sidebar:
     if st.button("🔄 RESET COMPLETO"): st.session_state.clear(); st.rerun()
 
 # --- APP ---
-st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.5</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.6</div>', unsafe_allow_html=True)
 
 sin_rosa = get_sin_rosa()
 ganancia = st.session_state.saldo_dinamico - s_ini
@@ -83,28 +83,32 @@ else: t, col, anim = f"⏳ ESPERAR ({sin_rosa}/30)", "#333", ""
 
 st.markdown(f'<div class="semaforo {anim}" style="background-color:{col};"><p class="semaforo-txt">{t}</p></div>', unsafe_allow_html=True)
 
-# --- PANEL DE REGISTRO CON ENTER HABILITADO ---
-with st.form("motor_registro", clear_on_submit=True):
+# --- MOTOR DE REGISTRO (SIN CLEAR_ON_SUBMIT PARA EVITAR EL BUG DEL 1.00) ---
+with st.form("motor_v956"):
     r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
-    with r1: valor_vuelo = st.number_input("MULTIPLICADOR FINAL", min_value=1.0, step=0.01, format="%.2f")
-    with r2: valor_apuesta = st.number_input("APUESTA Gs.", value=2000, step=1000)
-    with r3: st.write("##"); valor_chk = st.checkbox("¿APOSTADO?")
-    with r4: st.write("##"); btn_form = st.form_submit_button("REGISTRAR 🚀", use_container_width=True)
+    # Usamos value=2.0 solo para que se note si cambia
+    val_vuelo = r1.number_input("MULTIPLICADOR FINAL", min_value=1.0, step=0.01, format="%.2f")
+    val_apuesta = r2.number_input("APUESTA Gs.", value=2000, step=1000)
+    val_chk = r3.checkbox("¿APOSTADO?")
+    btn_form = r4.form_submit_button("REGISTRAR 🚀", use_container_width=True)
 
     if btn_form:
+        # Forzamos la lectura inmediata del valor del input
+        valor_final = float(val_vuelo)
+        
         # Calcular impacto
-        imp = (valor_apuesta * 9) if (valor_chk and valor_vuelo >= 10) else (-float(valor_apuesta) if valor_chk else 0.0)
+        imp = (val_apuesta * 9) if (val_chk and valor_final >= 10.0) else (-float(val_apuesta) if val_chk else 0.0)
         
         # Guardar datos
-        st.session_state.historial.append(valor_vuelo)
+        st.session_state.historial.append(valor_final)
         st.session_state.registro_saldos.append(imp)
         st.session_state.saldo_dinamico += imp
         
         # Actualizar horas
-        if valor_vuelo >= 10:
+        if valor_final >= 10.0:
             ahora_f = datetime.now(py_tz).strftime("%H:%M")
             st.session_state.h_10x = ahora_f
-            if valor_vuelo >= 100: st.session_state.h_100x = ahora_f
+            if valor_final >= 100.0: st.session_state.h_100x = ahora_f
         
         st.rerun()
 

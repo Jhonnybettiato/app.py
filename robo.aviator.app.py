@@ -4,7 +4,7 @@ import pytz
 import streamlit.components.v1 as components
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.6.9", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.7.1", page_icon="🦅", layout="wide")
 
 # --- ESTILOS CSS ---
 st.markdown("""
@@ -12,7 +12,7 @@ st.markdown("""
     .stApp { background-color: #000000; }
     .main-header { color: #FFFFFF; font-size: 2.2rem; font-weight: 900; text-align: center; padding: 10px; text-transform: uppercase; letter-spacing: 3px; border-bottom: 2px solid #333; margin-bottom: 20px; }
     .elite-card { background-color: #121212; padding: 15px; border-radius: 15px; text-align: center; border: 1px solid #333; }
-    .label-elite { color: #888 !important; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; }
+    .label-elite { color: #888 !important; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; display: flex; align-items: center; justify-content: center; gap: 5px; }
     .valor-elite { color: #FFFFFF !important; font-size: 1.8rem; font-weight: 900; }
     
     /* Indicador visual de FOCO ACTIVO */
@@ -56,7 +56,6 @@ def registrar():
                 if val >= 10.0: st.session_state.h_10x = ahora_f
                 if val >= 100.0: st.session_state.h_100x = ahora_f
                 
-                # Al cambiar la Key, forzamos a que el navegador detecte un elemento nuevo
                 st.session_state.key_id += 1
             except: pass
 
@@ -71,15 +70,20 @@ with st.sidebar:
         st.rerun()
 
 # --- INTERFAZ ---
-st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.6.9</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.7.1</div>', unsafe_allow_html=True)
 
 # Dashboard de métricas
 c1, c2, c3, c4 = st.columns(4)
 res_ac = st.session_state.saldo_dinamico - st.session_state.cap_ini
-c1.markdown(f'<div class="elite-card"><p class="label-elite">SALDO</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
-c2.markdown(f'<div class="elite-card" style="border-color:{"#0f4" if res_ac >=0 else "#f31"};"><p class="label-elite">GANANCIA</p><h2 class="valor-elite">{int(res_ac):,}</h2></div>', unsafe_allow_html=True)
-c3.markdown(f'<div class="elite-card"><p class="label-elite">10X</p><h2 class="valor-elite">{st.session_state.h_10x}</h2></div>', unsafe_allow_html=True)
-c4.markdown(f'<div class="elite-card"><p class="label-elite">100X</p><h2 class="valor-elite">{st.session_state.h_100x}</h2></div>', unsafe_allow_html=True)
+
+c1.markdown(f'<div class="elite-card"><p class="label-elite">💰 SALDO</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
+c2.markdown(f'<div class="elite-card" style="border-color:{"#0f4" if res_ac >=0 else "#f31"};"><p class="label-elite">📈 GANANCIA</p><h2 class="valor-elite">{int(res_ac):,}</h2></div>', unsafe_allow_html=True)
+
+# Tarjeta 10x con avión
+c3.markdown(f'<div class="elite-card"><p class="label-elite">✈️ ÚLTIMA 10X</p><h2 class="valor-elite" style="color:#9b59b6 !important;">{st.session_state.h_10x}</h2></div>', unsafe_allow_html=True)
+
+# Tarjeta 100x con avión rosa
+c4.markdown(f'<div class="elite-card"><p class="label-elite">🚀 ÚLTIMA 100X</p><h2 class="valor-elite" style="color:#e91e63 !important;">{st.session_state.h_100x}</h2></div>', unsafe_allow_html=True)
 
 # Semáforo de conteo
 sin_rosa = 0
@@ -88,13 +92,11 @@ for v in reversed(st.session_state.historial):
     sin_rosa += 1
 st.markdown(f'<div style="background-color:#111; padding:15px; border-radius:10px; text-align:center; margin-bottom:15px; border: 1px solid #333;"><h3 style="color:white; margin:0;">⏳ RONDAS SIN ROSA: {sin_rosa}</h3></div>', unsafe_allow_html=True)
 
-# PANEL DE ENTRADA CON AUTO-FOCUS
+# PANEL DE ENTRADA
 st.markdown('<div class="elite-card">', unsafe_allow_html=True)
 r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
 
 with r1:
-    # Usamos st.text_input con una key que cambia. Esto "obliga" al navegador a crear un nuevo input.
-    # El atributo 'placeholder' nos servirá para que el JavaScript lo encuentre.
     st.text_input(
         "VALOR DEL VUELO", 
         value="", 
@@ -108,18 +110,15 @@ with r3: st.write("##"); st.checkbox("¿APOSTÉ?", key="in_chk")
 with r4: st.write("##"); st.button("REGISTRAR 🚀", on_click=registrar)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# --- INYECTOR DE FOCO MEJORADO ---
-# Este componente se ejecuta al final de la carga para asegurar que el input esté listo
+# --- INYECTOR DE FOCO ---
 components.html(f"""
     <script>
     function setFocus() {{
-        // Buscamos en el documento padre (Streamlit corre en un iframe)
         var inputs = window.parent.document.querySelectorAll('input[placeholder="INGRESE VALOR"]');
         if (inputs.length > 0) {{
             inputs[0].focus();
         }}
     }}
-    // Intentamos poner el foco inmediatamente y tras un pequeño retraso por si el DOM está cargando
     setFocus();
     setTimeout(setFocus, 300);
     </script>

@@ -66,8 +66,13 @@ def registrar():
                 
                 # IMPORTANTE: Cambiamos la clave para que la caja anterior se destruya
                 st.session_state.key_id += 1
-            except:
+                # Opcional: forzamos un rerun para limpiar la entrada anterior y enfocar la nueva
+                # No es estrictamente necesario si ya cambiamos la clave y se renderiza de nuevo.
+            except Exception as e:
+                # Puedes registrar el error en consola para depurar
+                print(f"Error en registrar: {e}")
                 pass
+
 
 # --- BARRA LATERAL ---
 with st.sidebar:

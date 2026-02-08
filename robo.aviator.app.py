@@ -3,39 +3,38 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite v9.5.1 - PROFESIONAL", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.5.2", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS AVANZADO ---
+# --- DISEÑO CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
+    .main-title { color: #FFFFFF; font-size: 2.5rem; font-weight: 900; text-align: center; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
     .elite-card { 
-        background-color: #121212; padding: 12px; border-radius: 15px; 
+        background-color: #121212; padding: 15px; border-radius: 15px; 
         text-align: center; margin-bottom: 5px; border: 1px solid #333;
     }
-    .label-elite { color: #888 !important; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; }
-    .valor-elite { color: #FFFFFF !important; font-size: 1.8rem; font-weight: 900; line-height: 1.1; }
+    .label-elite { color: #888 !important; font-weight: 800; text-transform: uppercase; font-size: 0.75rem; }
+    .valor-elite { color: #FFFFFF !important; font-size: 2rem; font-weight: 900; line-height: 1.1; }
     
-    /* Ventanas de Saldo Específicas */
-    .win-card { background-color: #002b11; border: 2px solid #00ff41; padding: 10px; border-radius: 12px; text-align: center; }
-    .loss-card { background-color: #2b0000; border: 2px solid #ff3131; padding: 10px; border-radius: 12px; text-align: center; }
+    /* Ventanas de Saldo Dinámicas */
+    .win-card { background-color: #003311; border: 2px solid #00ff41; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 0 15px rgba(0,255,65,0.2); }
+    .loss-card { background-color: #330000; border: 2px solid #ff3131; padding: 15px; border-radius: 15px; text-align: center; box-shadow: 0 0 15px rgba(255,49,49,0.2); }
     
-    /* Animación de Parpadeo para la Ronda 30 */
     @keyframes glow {
         0% { box-shadow: 0 0 5px #2ecc71; }
-        50% { box-shadow: 0 0 30px #2ecc71; }
+        50% { box-shadow: 0 0 35px #2ecc71; border-color: #fff; }
         100% { box-shadow: 0 0 5px #2ecc71; }
     }
-    .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; border: 3px solid transparent; }
-    .glow-active { animation: glow 1.5s infinite; border-color: #fff !important; }
+    .semaforo-box { padding: 35px; border-radius: 25px; text-align: center; margin-top: 15px; border: 3px solid transparent; transition: 0.4s; }
+    .glow-active { animation: glow 1s infinite; }
+    .semaforo-texto { font-size: 2.5rem; font-weight: 900; color: white; margin: 0; text-shadow: 2px 2px 5px rgba(0,0,0,0.7); }
     
-    .semaforo-texto { font-size: 2.2rem; font-weight: 900; color: white; margin: 0; }
     .burbuja { 
-        min-width: 60px; height: 55px; border-radius: 25px; 
+        min-width: 65px; height: 60px; border-radius: 30px; 
         display: flex; align-items: center; justify-content: center; 
-        font-weight: 900; color: white; margin-right: 5px; font-size: 0.9rem;
+        font-weight: 900; color: white; margin-right: 6px; font-size: 1rem;
     }
-    label { color: white !important; font-weight: bold !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -45,10 +44,10 @@ if 'historial' not in st.session_state: st.session_state.historial = []
 if 'registro_saldos' not in st.session_state: st.session_state.registro_saldos = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
-if 'h_10x_input' not in st.session_state: st.session_state.h_10x_input = "00:00"
-if 'h_100x_input' not in st.session_state: st.session_state.h_100x_input = "---"
+if 'h_10x' not in st.session_state: st.session_state.h_10x = "00:00"
+if 'h_100x' not in st.session_state: st.session_state.h_100x = "---"
 
-# --- FUNCIONES ---
+# --- FUNCIONES CORE ---
 def get_minutos(hora_str):
     if "---" in hora_str or ":" not in hora_str: return "?"
     try:
@@ -59,44 +58,48 @@ def get_minutos(hora_str):
     except: return "?"
 
 def calc_sin_rosa():
+    """Calcula las rondas sin rosas con reset instantáneo"""
     if not st.session_state.historial: return 0
-    if st.session_state.historial[-1] >= 10: return 0
-    c = 0
+    # Si la última burbuja registrada es rosa, el contador DEBE ser 0
+    if float(st.session_state.historial[-1]) >= 10.0: return 0
+    count = 0
     for v in reversed(st.session_state.historial):
-        if v >= 10: break
-        c += 1
-    return c
+        if float(v) >= 10.0: break
+        count += 1
+    return count
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("🦅 CONFIGURACIÓN")
-    saldo_in = st.number_input("Saldo Inicial Gs.", value=50000, step=5000)
+    st.title("🦅 CONFIG")
+    saldo_in = st.number_input("Capital Inicial (Gs.)", value=50000, step=5000)
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
-    if st.button("🔄 REINICIAR SISTEMA"): st.session_state.clear(); st.rerun()
+    if st.button("🔄 REINICIAR ROBOT"): st.session_state.clear(); st.rerun()
 
-# --- UI PRINCIPAL ---
+# --- INTERFAZ PRINCIPAL ---
+st.markdown('<h1 class="main-title">🦅 AVIATOR ELITE ROBOT v9.5.2</h1>', unsafe_allow_html=True)
+
 sin_rosa_actual = calc_sin_rosa()
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
 
-# FILA 1: VENTANAS DE SALDO (Verde y Rojo)
+# DASHBOARD SUPERIOR
 m1, m2, m3, m4 = st.columns(4)
 with m1:
     st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO ACTUAL</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
 
 with m2:
     if ganancia_neta >= 0:
-        st.markdown(f'<div class="win-card"><p class="label-elite" style="color:#00ff41 !important;">GANANCIA ACUMULADA</p><h2 class="valor-elite" style="color:#00ff41 !important;">+{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="win-card"><p class="label-elite" style="color:#00ff41!important;">GANANCIA ACUMULADA</p><h2 class="valor-elite" style="color:#00ff41!important;">+{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
     else:
-        st.markdown(f'<div class="loss-card"><p class="label-elite" style="color:#ff3131 !important;">PÉRDIDA ACTUAL</p><h2 class="valor-elite" style="color:#ff3131 !important;">{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
+        st.markdown(f'<div class="loss-card"><p class="label-elite" style="color:#ff3131!important;">PÉRDIDA ACTUAL</p><h2 class="valor-elite" style="color:#ff3131!important;">{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
 
 with m3:
-    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.h_10x_input}</h2><p style="color:#00ff41; font-size:0.8rem; margin:0;">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.h_10x}</h2><p style="color:#00ff41; font-size:0.9rem; margin:0; font-weight:bold;">⏱️ {get_minutos(st.session_state.h_10x)} min</p></div>', unsafe_allow_html=True)
 with m4:
-    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 100X</p><h2 class="valor-elite">{st.session_state.h_100x_input}</h2><p style="color:#00ff41; font-size:0.8rem; margin:0;">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 100X</p><h2 class="valor-elite">{st.session_state.h_100x}</h2><p style="color:#00ff41; font-size:0.9rem; margin:0; font-weight:bold;">⏱️ {get_minutos(st.session_state.h_100x)} min</p></div>', unsafe_allow_html=True)
 
-# SEMÁFORO CON ANIMACIÓN
+# SEMÁFORO DE ESTRATEGIA
 if sin_rosa_actual >= 40:
     txt, col, clase = "🛑 STOP LOSS: PARAR AHORA", "#ff3131", ""
 elif sin_rosa_actual >= 30:
@@ -108,34 +111,39 @@ else:
 
 st.markdown(f'<div class="semaforo-box {clase}" style="background-color:{col};"><p class="semaforo-texto">{txt}</p></div>', unsafe_allow_html=True)
 
-# --- REGISTRO ---
+# --- PANEL DE REGISTRO ---
 with st.container():
-    with st.form("form_v951", clear_on_submit=True):
+    with st.form("registro_pro_v2", clear_on_submit=True):
         f1, f2, f3, f4 = st.columns([2, 1, 1, 1])
-        with f1: v_v = st.text_input("VALOR DEL VUELO")
-        with f2: a_v = st.number_input("APUESTA", value=2000, step=1000)
+        with f1: v_v = st.text_input("VALOR DEL VUELO (Ej: 10.50)")
+        with f2: a_v = st.number_input("APUESTA Gs.", value=2000, step=1000)
         with f3: st.write("##"); chk = st.checkbox("¿APOSTÉ?")
-        with f4: st.write("##"); btn = st.form_submit_button("REGISTRAR")
+        with f4: st.write("##"); btn = st.form_submit_button("REGISTRAR 🚀")
 
         if btn and v_v:
             try:
                 val = float(v_v.replace(',', '.'))
+                # Cálculo de saldo: Si es rosa y aposté, gano 9 veces la apuesta (10x total)
                 impacto = (a_v * 9) if (chk and val >= 10) else (-float(a_v) if chk else 0.0)
+                
                 st.session_state.historial.append(val)
                 st.session_state.registro_saldos.append(impacto)
                 st.session_state.saldo_dinamico += impacto
+                
                 if val >= 10:
-                    st.session_state.h_10x_input = datetime.now(py_tz).strftime("%H:%M")
-                    if val >= 100: st.session_state.h_100x_input = datetime.now(py_tz).strftime("%H:%M")
+                    ahora = datetime.now(py_tz).strftime("%H:%M")
+                    st.session_state.h_10x = ahora
+                    if val >= 100: st.session_state.h_100x = ahora
+                
                 st.rerun()
-            except: pass
+            except: st.error("Formato de número inválido")
 
-# HISTORIAL DE BURBUJAS
+# BURBUJAS HISTÓRICAS
 if st.session_state.historial:
     h_html = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v}</div>' for v in reversed(st.session_state.historial[-15:])])
-    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:12px; background:#111; border-radius:15px; border: 1px solid #333; margin-top:5px;">{h_html}</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:20px; border: 1px solid #333; margin-top:10px;">{h_html}</div>', unsafe_allow_html=True)
 
-if st.button("🔙 DESHACER ÚLTIMA", use_container_width=True):
+if st.button("🔙 DESHACER ÚLTIMO REGISTRO", use_container_width=True):
     if st.session_state.historial:
         st.session_state.historial.pop()
         st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()

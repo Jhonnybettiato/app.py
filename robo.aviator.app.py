@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.5.7", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.5.8", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -25,29 +25,27 @@ st.markdown("""
 
 # 2. Inicialización
 py_tz = pytz.timezone('America/Asuncion')
+ahora_inicial = datetime.now(py_tz).strftime("%H:%M")
+
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'registro_saldos' not in st.session_state: st.session_state.registro_saldos = []
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 0.0
 if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = True
-if 'h_10x' not in st.session_state: st.session_state.h_10x = "00:00"
+if 'h_10x' not in st.session_state: st.session_state.h_10x = ahora_inicial
 if 'h_100x' not in st.session_state: st.session_state.h_100x = "---"
 
-# --- FUNCIÓN DE REGISTRO INSTANTÁNEO ---
+# --- FUNCIÓN DE REGISTRO ---
 def registrar_vuelo():
-    # Solo registramos si el valor en el widget es diferente al estado inicial
     v_vuelo = st.session_state.input_vuelo
     a_vuelo = st.session_state.input_apuesta
     chk_ap = st.session_state.input_chk
     
-    # Calcular impacto
     imp = (a_vuelo * 9) if (chk_ap and v_vuelo >= 10.0) else (-float(a_vuelo) if chk_ap else 0.0)
     
-    # Guardar datos
     st.session_state.historial.append(v_vuelo)
     st.session_state.registro_saldos.append(imp)
     st.session_state.saldo_dinamico += imp
     
-    # Actualizar horas
     if v_vuelo >= 10.0:
         ahora_f = datetime.now(py_tz).strftime("%H:%M")
         st.session_state.h_10x = ahora_f
@@ -72,17 +70,30 @@ def get_sin_rosa():
         c += 1
     return c
 
-# --- SIDEBAR ---
+# --- SIDEBAR (EDICIÓN DE HORARIOS) ---
 with st.sidebar:
-    st.markdown("### ⚙️ AJUSTES")
+    st.markdown("### ⚙️ AJUSTES PRO")
     s_ini = st.number_input("Capital Inicial", value=50000, step=5000)
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(s_ini)
         st.session_state.primer_inicio = False
+    
+    st.divider()
+    st.markdown("### 🕒 EDITAR HORARIOS")
+    # Los cambios aquí actualizan directamente el session_state
+    new_h10 = st.text_input("Editar Última 10x (HH:MM)", value=st.session_state.h_10x)
+    new_h100 = st.text_input("Editar Última 100x (HH:MM)", value=st.session_state.h_100x)
+    
+    if st.button("✅ APLICAR HORARIOS"):
+        st.session_state.h_10x = new_h10
+        st.session_state.h_100x = new_h100
+        st.rerun()
+
+    st.divider()
     if st.button("🔄 RESET COMPLETO"): st.session_state.clear(); st.rerun()
 
 # --- APP ---
-st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.7</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.8</div>', unsafe_allow_html=True)
 
 sin_rosa = get_sin_rosa()
 ganancia = st.session_state.saldo_dinamico - s_ini
@@ -104,18 +115,16 @@ else: t, col, anim = f"⏳ ESPERAR ({sin_rosa}/30)", "#333", ""
 
 st.markdown(f'<div class="semaforo {anim}" style="background-color:{col};"><p class="semaforo-txt">{t}</p></div>', unsafe_allow_html=True)
 
-# --- PANEL DE REGISTRO DE UN SOLO ENTER ---
+# --- PANEL DE REGISTRO ---
 st.markdown('<div class="elite-card">', unsafe_allow_html=True)
 r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
-
-# El secreto está en 'on_change'. Cuando detecta el Enter, ejecuta la función automáticamente.
 with r1: st.number_input("MULTIPLICADOR FINAL", min_value=1.0, step=0.01, format="%.2f", key="input_vuelo", on_change=registrar_vuelo)
 with r2: st.number_input("APUESTA Gs.", value=2000, step=1000, key="input_apuesta")
 with r3: st.write("##"); st.checkbox("¿APOSTADO?", key="input_chk")
-with r4: st.write("##"); st.button("REGISTRAR 🚀", on_click=registrar_vuelo) # También botón por si acaso
+with r4: st.write("##"); st.button("REGISTRAR 🚀", on_click=registrar_vuelo)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# HISTORIAL DE BURBUJAS
+# HISTORIAL
 if st.session_state.historial:
     h_h = "".join([f'<div class="burbuja" style="background-color:{"#3498db" if v < 2 else "#9b59b6" if v < 10 else "#e91e63"};">{v:.2f}</div>' for v in reversed(st.session_state.historial[-15:])])
     st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:20px; border: 1px solid #333; margin-top:10px;">{h_h}</div>', unsafe_allow_html=True)

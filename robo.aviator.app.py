@@ -3,7 +3,7 @@ from datetime import datetime
 import pytz
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.5.6", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.5.7", page_icon="🦅", layout="wide")
 
 # --- DISEÑO CSS ---
 st.markdown("""
@@ -32,7 +32,28 @@ if 'primer_inicio' not in st.session_state: st.session_state.primer_inicio = Tru
 if 'h_10x' not in st.session_state: st.session_state.h_10x = "00:00"
 if 'h_100x' not in st.session_state: st.session_state.h_100x = "---"
 
-# --- FUNCIONES ---
+# --- FUNCIÓN DE REGISTRO INSTANTÁNEO ---
+def registrar_vuelo():
+    # Solo registramos si el valor en el widget es diferente al estado inicial
+    v_vuelo = st.session_state.input_vuelo
+    a_vuelo = st.session_state.input_apuesta
+    chk_ap = st.session_state.input_chk
+    
+    # Calcular impacto
+    imp = (a_vuelo * 9) if (chk_ap and v_vuelo >= 10.0) else (-float(a_vuelo) if chk_ap else 0.0)
+    
+    # Guardar datos
+    st.session_state.historial.append(v_vuelo)
+    st.session_state.registro_saldos.append(imp)
+    st.session_state.saldo_dinamico += imp
+    
+    # Actualizar horas
+    if v_vuelo >= 10.0:
+        ahora_f = datetime.now(py_tz).strftime("%H:%M")
+        st.session_state.h_10x = ahora_f
+        if v_vuelo >= 100.0: st.session_state.h_100x = ahora_f
+
+# --- LÓGICA DE CÁLCULO ---
 def get_mins(h_str):
     if "---" in h_str or ":" not in h_str: return "?"
     try:
@@ -61,7 +82,7 @@ with st.sidebar:
     if st.button("🔄 RESET COMPLETO"): st.session_state.clear(); st.rerun()
 
 # --- APP ---
-st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.6</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.5.7</div>', unsafe_allow_html=True)
 
 sin_rosa = get_sin_rosa()
 ganancia = st.session_state.saldo_dinamico - s_ini
@@ -83,34 +104,16 @@ else: t, col, anim = f"⏳ ESPERAR ({sin_rosa}/30)", "#333", ""
 
 st.markdown(f'<div class="semaforo {anim}" style="background-color:{col};"><p class="semaforo-txt">{t}</p></div>', unsafe_allow_html=True)
 
-# --- MOTOR DE REGISTRO (SIN CLEAR_ON_SUBMIT PARA EVITAR EL BUG DEL 1.00) ---
-with st.form("motor_v956"):
-    r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
-    # Usamos value=2.0 solo para que se note si cambia
-    val_vuelo = r1.number_input("MULTIPLICADOR FINAL", min_value=1.0, step=0.01, format="%.2f")
-    val_apuesta = r2.number_input("APUESTA Gs.", value=2000, step=1000)
-    val_chk = r3.checkbox("¿APOSTADO?")
-    btn_form = r4.form_submit_button("REGISTRAR 🚀", use_container_width=True)
+# --- PANEL DE REGISTRO DE UN SOLO ENTER ---
+st.markdown('<div class="elite-card">', unsafe_allow_html=True)
+r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
 
-    if btn_form:
-        # Forzamos la lectura inmediata del valor del input
-        valor_final = float(val_vuelo)
-        
-        # Calcular impacto
-        imp = (val_apuesta * 9) if (val_chk and valor_final >= 10.0) else (-float(val_apuesta) if val_chk else 0.0)
-        
-        # Guardar datos
-        st.session_state.historial.append(valor_final)
-        st.session_state.registro_saldos.append(imp)
-        st.session_state.saldo_dinamico += imp
-        
-        # Actualizar horas
-        if valor_final >= 10.0:
-            ahora_f = datetime.now(py_tz).strftime("%H:%M")
-            st.session_state.h_10x = ahora_f
-            if valor_final >= 100.0: st.session_state.h_100x = ahora_f
-        
-        st.rerun()
+# El secreto está en 'on_change'. Cuando detecta el Enter, ejecuta la función automáticamente.
+with r1: st.number_input("MULTIPLICADOR FINAL", min_value=1.0, step=0.01, format="%.2f", key="input_vuelo", on_change=registrar_vuelo)
+with r2: st.number_input("APUESTA Gs.", value=2000, step=1000, key="input_apuesta")
+with r3: st.write("##"); st.checkbox("¿APOSTADO?", key="input_chk")
+with r4: st.write("##"); st.button("REGISTRAR 🚀", on_click=registrar_vuelo) # También botón por si acaso
+st.markdown('</div>', unsafe_allow_html=True)
 
 # HISTORIAL DE BURBUJAS
 if st.session_state.historial:

@@ -1,12 +1,11 @@
 import streamlit as st
 from datetime import datetime
 import pytz
-import re
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite v9.5.0", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite v9.5.1 - PROFESIONAL", page_icon="🦅", layout="wide")
 
-# --- DISEÑO CSS ---
+# --- DISEÑO CSS AVANZADO ---
 st.markdown("""
     <style>
     .stApp { background-color: #000000; }
@@ -16,9 +15,21 @@ st.markdown("""
     }
     .label-elite { color: #888 !important; font-weight: 800; text-transform: uppercase; font-size: 0.7rem; }
     .valor-elite { color: #FFFFFF !important; font-size: 1.8rem; font-weight: 900; line-height: 1.1; }
-    .minutos-meta { color: #00ff41; font-weight: bold; font-size: 0.9rem; }
-    .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; border: 3px solid transparent; transition: 0.5s; }
-    .semaforo-texto { font-size: 2.2rem; font-weight: 900; color: white; margin: 0; text-shadow: 2px 2px 4px rgba(0,0,0,0.5); }
+    
+    /* Ventanas de Saldo Específicas */
+    .win-card { background-color: #002b11; border: 2px solid #00ff41; padding: 10px; border-radius: 12px; text-align: center; }
+    .loss-card { background-color: #2b0000; border: 2px solid #ff3131; padding: 10px; border-radius: 12px; text-align: center; }
+    
+    /* Animación de Parpadeo para la Ronda 30 */
+    @keyframes glow {
+        0% { box-shadow: 0 0 5px #2ecc71; }
+        50% { box-shadow: 0 0 30px #2ecc71; }
+        100% { box-shadow: 0 0 5px #2ecc71; }
+    }
+    .semaforo-box { padding: 30px; border-radius: 20px; text-align: center; margin-top: 10px; border: 3px solid transparent; }
+    .glow-active { animation: glow 1.5s infinite; border-color: #fff !important; }
+    
+    .semaforo-texto { font-size: 2.2rem; font-weight: 900; color: white; margin: 0; }
     .burbuja { 
         min-width: 60px; height: 55px; border-radius: 25px; 
         display: flex; align-items: center; justify-content: center; 
@@ -58,44 +69,48 @@ def calc_sin_rosa():
 
 # --- BARRA LATERAL ---
 with st.sidebar:
-    st.header("🦅 SISTEMA ÚNICO")
-    st.info("Estrategia Híbrida 30/40 Activada")
+    st.header("🦅 CONFIGURACIÓN")
     saldo_in = st.number_input("Saldo Inicial Gs.", value=50000, step=5000)
     if st.session_state.primer_inicio:
         st.session_state.saldo_dinamico = float(saldo_in)
         st.session_state.primer_inicio = False
-    if st.button("🔄 RESET"): st.session_state.clear(); st.rerun()
+    if st.button("🔄 REINICIAR SISTEMA"): st.session_state.clear(); st.rerun()
 
 # --- UI PRINCIPAL ---
 sin_rosa_actual = calc_sin_rosa()
 ganancia_neta = st.session_state.saldo_dinamico - saldo_in
 
-# CABECERA: DINERO Y TIEMPO
+# FILA 1: VENTANAS DE SALDO (Verde y Rojo)
 m1, m2, m3, m4 = st.columns(4)
-with m1: st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
-with m2: 
-    cg = "#00ff41" if ganancia_neta >= 0 else "#ff3131"
-    st.markdown(f'<div class="elite-card"><p class="label-elite">GANANCIA</p><h2 class="valor-elite" style="color:{cg}!important;">{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
+with m1:
+    st.markdown(f'<div class="elite-card"><p class="label-elite">SALDO ACTUAL</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
+
+with m2:
+    if ganancia_neta >= 0:
+        st.markdown(f'<div class="win-card"><p class="label-elite" style="color:#00ff41 !important;">GANANCIA ACUMULADA</p><h2 class="valor-elite" style="color:#00ff41 !important;">+{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div class="loss-card"><p class="label-elite" style="color:#ff3131 !important;">PÉRDIDA ACTUAL</p><h2 class="valor-elite" style="color:#ff3131 !important;">{int(ganancia_neta):,}</h2></div>', unsafe_allow_html=True)
+
 with m3:
-    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.h_10x_input}</h2><p class="minutos-meta">{get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 10X</p><h2 class="valor-elite">{st.session_state.h_10x_input}</h2><p style="color:#00ff41; font-size:0.8rem; margin:0;">⏱️ {get_minutos(st.session_state.h_10x_input)} min</p></div>', unsafe_allow_html=True)
 with m4:
-    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 100X</p><h2 class="valor-elite">{st.session_state.h_100x_input}</h2><p class="minutos-meta">{get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
+    st.markdown(f'<div class="elite-card"><p class="label-elite">ÚLTIMA 100X</p><h2 class="valor-elite">{st.session_state.h_100x_input}</h2><p style="color:#00ff41; font-size:0.8rem; margin:0;">⏱️ {get_minutos(st.session_state.h_100x_input)} min</p></div>', unsafe_allow_html=True)
 
-# SEMÁFORO GIGANTE DE DECISIÓN
+# SEMÁFORO CON ANIMACIÓN
 if sin_rosa_actual >= 40:
-    txt, col, sh = "🛑 STOP LOSS: SALIR AHORA", "#ff3131", "0 0 40px #ff3131"
+    txt, col, clase = "🛑 STOP LOSS: PARAR AHORA", "#ff3131", ""
 elif sin_rosa_actual >= 30:
-    txt, col, sh = "🔥 FUEGO: ENTRAR (ZONA 30)", "#27ae60", "0 0 30px #2ecc71"
+    txt, col, clase = "🔥 ¡ENTRAR AHORA! (META 30)", "#27ae60", "glow-active"
 elif sin_rosa_actual >= 25:
-    txt, col, sh = "🟡 ACECHO: PREPARAR", "#f39c12", "none"
+    txt, col, clase = "🟡 PREPARAR (ZONA 25+)", "#f39c12", ""
 else:
-    txt, col, sh = f"⏳ ESPERAR ({sin_rosa_actual}/30)", "#333", "none"
+    txt, col, clase = f"⏳ ESPERAR ({sin_rosa_actual}/30)", "#333", ""
 
-st.markdown(f'<div class="semaforo-box" style="background-color:{col}; box-shadow:{sh}; border-color:white;"><p class="semaforo-texto">{txt}</p></div>', unsafe_allow_html=True)
+st.markdown(f'<div class="semaforo-box {clase}" style="background-color:{col};"><p class="semaforo-texto">{txt}</p></div>', unsafe_allow_html=True)
 
-# --- ZONA DE REGISTRO ---
+# --- REGISTRO ---
 with st.container():
-    with st.form("form_unica", clear_on_submit=True):
+    with st.form("form_v951", clear_on_submit=True):
         f1, f2, f3, f4 = st.columns([2, 1, 1, 1])
         with f1: v_v = st.text_input("VALOR DEL VUELO")
         with f2: a_v = st.number_input("APUESTA", value=2000, step=1000)

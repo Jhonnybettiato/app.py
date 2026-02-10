@@ -6,7 +6,7 @@ import pandas as pd
 import io
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.8.0", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.8.1", page_icon="🦅", layout="wide")
 
 # --- ESTILOS CSS ---
 st.markdown("""
@@ -28,7 +28,7 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 2. Inicialización de Estados
+# 2. Inicialización de Estados (Blindado)
 py_tz = pytz.timezone('America/Asuncion')
 
 if 'historial' not in st.session_state: st.session_state.historial = []
@@ -48,16 +48,11 @@ def calcular_cronometro(hora_str):
         ahora = datetime.now(py_tz)
         hora_obj = datetime.strptime(hora_str, "%H:%M")
         hora_final = ahora.replace(hour=hora_obj.hour, minute=hora_obj.minute, second=0, microsecond=0)
-        
         diferencia = ahora - hora_final
         total_segundos = int(diferencia.total_seconds())
         if total_segundos < 0: total_segundos += 86400
-            
-        minutos = total_segundos // 60
-        segundos = total_segundos % 60
-        return f"{minutos:02d}m {segundos:02d}s"
-    except:
-        return "error"
+        return f"{total_segundos // 60:02d}m {total_segundos % 60:02d}s"
+    except: return "00m 00s"
 
 def registrar():
     curr_key = f"input_{st.session_state.key_id}"
@@ -69,9 +64,9 @@ def registrar():
                 apuesta = st.session_state.in_apuesta
                 jugado = st.session_state.in_chk
                 gan = (apuesta * 9) if (jugado and val >= 10.0) else (-float(apuesta) if jugado else 0.0)
-                
                 ahora_f = datetime.now(py_tz).strftime("%H:%M")
                 
+                # Sincronización de listas para evitar el ValueError
                 st.session_state.historial.append(val)
                 st.session_state.registro_saldos.append(gan)
                 st.session_state.registro_tiempos.append(ahora_f)
@@ -79,103 +74,80 @@ def registrar():
                 
                 if val >= 10.0: st.session_state.h_10x = ahora_f
                 if val >= 100.0: st.session_state.h_100x = ahora_f
-                
                 st.session_state.key_id += 1
-                # Limpiar el input se hace automáticamente al cambiar la key
             except: pass
 
 # --- BARRA LATERAL ---
 with st.sidebar:
     st.markdown("### ⚙️ AJUSTES")
-    
-    nuevo_cap = st.number_input("Capital Inicial", 
-                                value=float(st.session_state.cap_ini),
-                                step=1000.0)
-    
+    nuevo_cap = st.number_input("Capital Inicial", value=float(st.session_state.cap_ini), step=1000.0)
     if nuevo_cap != st.session_state.cap_ini:
-        diff = nuevo_cap - st.session_state.cap_ini
+        st.session_state.saldo_dinamico += (nuevo_cap - st.session_state.cap_ini)
         st.session_state.cap_ini = nuevo_cap
-        st.session_state.saldo_dinamico += diff
         st.rerun()
 
     st.session_state.h_10x = st.text_input("Hora última 10x", value=st.session_state.h_10x)
     st.session_state.h_100x = st.text_input("Hora última 100x", value=st.session_state.h_100x)
     
     st.markdown("---")
-    # Función Exportar
-    if st.session_state.historial:
-        df = pd.DataFrame({
-            "Hora": st.session_state.registro_tiempos,
-            "Multiplicador": st.session_state.historial,
-            "Ganancia/Pérdida": st.session_state.registro_saldos
-        })
-        toweb = io.BytesIO()
-        df.to_csv(toweb, index=False)
-        st.download_button("📥 DESCARGAR DATA", data=toweb.getvalue(), file_name="sesion_aviator.csv", mime="text/csv")
+    # Exportación segura (valida que las listas coincidan antes de crear el CSV)
+    if len(st.session_state.historial) > 0:
+        try:
+            min_len = min(len(st.session_state.registro_tiempos), len(st.session_state.historial), len(st.session_state.registro_saldos))
+            df = pd.DataFrame({
+                "Hora": st.session_state.registro_tiempos[:min_len],
+                "Multiplicador": st.session_state.historial[:min_len],
+                "Ganancia/Pérdida": st.session_state.registro_saldos[:min_len]
+            })
+            toweb = io.BytesIO()
+            df.to_csv(toweb, index=False)
+            st.download_button("📥 DESCARGAR DATA", data=toweb.getvalue(), file_name="sesion_aviator.csv", mime="text/csv")
+        except:
+            st.error("Error al procesar datos")
 
     if st.button("🔄 REINICIAR TODO"):
-        st.session_state.clear()
+        for key in list(st.session_state.keys()): del st.session_state[key]
         st.rerun()
 
 # --- INTERFAZ PRINCIPAL ---
-st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.8.0</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.8.1</div>', unsafe_allow_html=True)
 
-# Dashboard de métricas
 c1, c2, c3, c4 = st.columns(4)
 res_ac = st.session_state.saldo_dinamico - st.session_state.cap_ini
 
 c1.markdown(f'<div class="elite-card"><p class="label-elite">💰 SALDO</p><h2 class="valor-elite">{int(st.session_state.saldo_dinamico):,}</h2></div>', unsafe_allow_html=True)
 c2.markdown(f'<div class="elite-card" style="border-color:{"#0f4" if res_ac >=0 else "#f31"};"><p class="label-elite">📈 GANANCIA</p><h2 class="valor-elite">{int(res_ac):,}</h2></div>', unsafe_allow_html=True)
+c3.markdown(f'<div class="elite-card"><p class="label-elite">✈️ ÚLTIMA 10X</p><h2 class="valor-elite" style="color:#9b59b6 !important;">{st.session_state.h_10x}</h2><p class="cronometro">⏱️ hace {calcular_cronometro(st.session_state.h_10x)}</p></div>', unsafe_allow_html=True)
+c4.markdown(f'<div class="elite-card"><p class="label-elite">🚀 ÚLTIMA 100X</p><h2 class="valor-elite" style="color:#e91e63 !important;">{st.session_state.h_100x}</h2><p class="cronometro">⏱️ hace {calcular_cronometro(st.session_state.h_100x)}</p></div>', unsafe_allow_html=True)
 
-c3.markdown(f"""<div class="elite-card"><p class="label-elite">✈️ ÚLTIMA 10X</p><h2 class="valor-elite" style="color:#9b59b6 !important;">{st.session_state.h_10x}</h2>
-            <p class="cronometro">⏱️ hace {calcular_cronometro(st.session_state.h_10x)}</p></div>""", unsafe_allow_html=True)
-
-c4.markdown(f"""<div class="elite-card"><p class="label-elite">🚀 ÚLTIMA 100X</p><h2 class="valor-elite" style="color:#e91e63 !important;">{st.session_state.h_100x}</h2>
-            <p class="cronometro">⏱️ hace {calcular_cronometro(st.session_state.h_100x)}</p></div>""", unsafe_allow_html=True)
-
-# --- SEMÁFORO DE ESTRATEGIA ---
+# Lógica Semáforo
 sin_rosa = 0
 for v in reversed(st.session_state.historial):
     if v >= 10.0: break
     sin_rosa += 1
 
-if sin_rosa <= 20:
-    color_semaforo, mensaje, t_col = "#ff4b4b", "🚫 ESPERAR - RIESGO", "white"
-elif 21 <= sin_rosa <= 30:
-    color_semaforo, mensaje, t_col = "#ffeb3b", "⚠️ ANALIZANDO - POSIBLE", "black"
-elif 31 <= sin_rosa <= 40:
-    color_semaforo, mensaje, t_col = "#00ff41", "🚀 ENTRADA CONFIRMADA", "black"
-else:
-    color_semaforo, mensaje, t_col = "#9b59b6", "🔥 ALERTA MÁXIMA", "white"
+col_sem, msg, t_c = ("#ff4b4b", "🚫 RIESGO", "white") if sin_rosa <= 20 else ("#ffeb3b", "⚠️ ESPERAR", "black") if sin_rosa <= 30 else ("#00ff41", "🚀 ENTRADA", "black") if sin_rosa <= 40 else ("#9b59b6", "🔥 ALERTA", "white")
+st.markdown(f'<div style="background-color:{col_sem}; padding:20px; border-radius:15px; text-align:center; margin-bottom:15px; border:2px solid rgba(255,255,255,0.2);"><h2 style="color:{t_c}; margin:0; font-weight:900;">RONDAS SIN ROSA: {sin_rosa}</h2><h4 style="color:{t_c}; margin:5px 0 0 0;">{msg}</h4></div>', unsafe_allow_html=True)
 
-st.markdown(f'<div style="background-color:{color_semaforo}; padding:20px; border-radius:15px; text-align:center; margin-bottom:15px; border:2px solid rgba(255,255,255,0.2); shadow: 0px 4px 15px {color_semaforo}66;"><h2 style="color:{t_col}; margin:0; font-weight:900;">RONDAS SIN ROSA: {sin_rosa}</h2><h4 style="color:{t_col}; margin:5px 0 0 0; font-weight:700;">{mensaje}</h4></div>', unsafe_allow_html=True)
-
-# PANEL DE ENTRADA
+# Panel de entrada
 st.markdown('<div class="elite-card">', unsafe_allow_html=True)
 r1, r2, r3, r4 = st.columns([2, 1, 1, 1])
-with r1:
-    st.text_input("VALOR DEL VUELO", value="", key=f"input_{st.session_state.key_id}", on_change=registrar, placeholder="INGRESE VALOR")
+with r1: st.text_input("VALOR DEL VUELO", value="", key=f"input_{st.session_state.key_id}", on_change=registrar, placeholder="INGRESE VALOR")
 with r2: st.number_input("APUESTA", value=2000, key="in_apuesta")
 with r3: st.write("##"); st.checkbox("¿APOSTÉ?", key="in_chk")
 with r4: st.write("##"); st.button("REGISTRAR 🚀", on_click=registrar)
 st.markdown('</div>', unsafe_allow_html=True)
 
-# INYECTOR DE FOCO
-components.html(f"""<script>function setFocus(){{var inputs = window.parent.document.querySelectorAll('input[placeholder="INGRESE VALOR"]');if (inputs.length > 0) {{inputs[0].focus();}}}}setFocus();setTimeout(setFocus, 300);</script>""", height=0)
+# Foco y Historial
+components.html(f"""<script>function setFocus(){{var inputs = window.parent.document.querySelectorAll('input[placeholder="INGRESE VALOR"]');if (inputs.length > 0) inputs[0].focus();}}setFocus();setTimeout(setFocus, 300);</script>""", height=0)
 
-# HISTORIAL VISUAL MEJORADO
 if st.session_state.historial:
-    h_html = ""
-    for v in reversed(st.session_state.historial[-15:]):
-        b_color = "#e91e63" if v >= 10 else "#9b59b6" if v >= 2 else "#3498db"
-        b_border = "3px solid #ffeb3b" if v >= 100 else "none"
-        h_html += f'<div class="burbuja" style="background-color:{b_color}; border:{b_border};">{v:.2f}</div>'
-    
+    h_html = "".join([f'<div class="burbuja" style="background-color:{"#e91e63" if v >= 10 else "#9b59b6" if v >= 2 else "#3498db"}; border:{"3px solid gold" if v >= 100 else "none"};">{v:.2f}</div>' for v in reversed(st.session_state.historial[-15:])])
     st.markdown(f'<div style="display:flex; overflow-x:auto; padding:15px; background:#111; border-radius:20px; border: 1px solid #333; margin-top:20px;">{h_html}</div>', unsafe_allow_html=True)
 
-if st.button("🔙 DESHACER ÚLTIMO"):
+if st.button("🔙 DESHACER"):
     if st.session_state.historial:
         st.session_state.historial.pop()
-        st.session_state.registro_tiempos.pop()
+        if st.session_state.registro_tiempos: st.session_state.registro_tiempos.pop()
         st.session_state.saldo_dinamico -= st.session_state.registro_saldos.pop()
         st.rerun()

@@ -6,7 +6,7 @@ import pandas as pd
 import io
 
 # 1. Configuración de página
-st.set_page_config(page_title="Aviator Elite Robot v9.9.0", page_icon="🦅", layout="wide")
+st.set_page_config(page_title="Aviator Elite Robot v9.9.1", page_icon="🦅", layout="wide")
 
 # --- ESTILOS CSS ---
 st.markdown("""
@@ -25,7 +25,6 @@ st.markdown("""
     }
 
     .burbuja { min-width: 65px; height: 60px; border-radius: 30px; display: flex; align-items: center; justify-content: center; font-weight: 900; color: white; margin-right: 6px; font-size: 0.95rem; }
-    .intervalo-tag { background: #222; color: #e91e63; border: 1px solid #e91e63; padding: 2px 8px; border-radius: 5px; font-weight: bold; margin: 2px; display: inline-block; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -35,7 +34,7 @@ py_tz = pytz.timezone('America/Asuncion')
 if 'historial' not in st.session_state: st.session_state.historial = []
 if 'registro_saldos' not in st.session_state: st.session_state.registro_saldos = []
 if 'registro_tiempos' not in st.session_state: st.session_state.registro_tiempos = []
-if 'intervalos_rosas' not in st.session_state: st.session_state.intervalos_rosas = [] # Nueva lista
+if 'intervalos_rosas' not in st.session_state: st.session_state.intervalos_rosas = []
 if 'rondas_desde_ultima' not in st.session_state: st.session_state.rondas_desde_ultima = 0
 if 'saldo_dinamico' not in st.session_state: st.session_state.saldo_dinamico = 475000.0
 if 'h_10x' not in st.session_state: st.session_state.h_10x = "00:00"
@@ -68,10 +67,9 @@ def registrar():
                 gan = (apuesta * 9) if (jugado and val >= 10.0) else (-float(apuesta) if jugado else 0.0)
                 ahora_f = datetime.now(py_tz).strftime("%H:%M")
                 
-                # Lógica de Intervalos
                 if val >= 10.0:
                     st.session_state.intervalos_rosas.append(st.session_state.rondas_desde_ultima)
-                    st.session_state.rondas_desde_ultima = 0 # Reset
+                    st.session_state.rondas_desde_ultima = 0
                     st.session_state.h_10x = ahora_f
                     if val >= 100.0: st.session_state.h_100x = ahora_f
                 else:
@@ -93,21 +91,26 @@ with st.sidebar:
         st.session_state.cap_ini = nuevo_cap
         st.rerun()
 
+    # --- RESTAURADOS: EDITORES DE HORA ---
     st.markdown("---")
-    # VENTANA DE INTERVALOS (Tu idea)
+    st.markdown("### 🕒 EDITAR HORARIOS")
+    st.session_state.h_10x = st.text_input("Última 10x (HH:MM)", value=st.session_state.h_10x)
+    st.session_state.h_100x = st.text_input("Última 100x (HH:MM)", value=st.session_state.h_100x)
+
+    st.markdown("---")
     st.markdown("### 📊 DISTANCIA ENTRE ROSAS")
     if st.session_state.intervalos_rosas:
         for i, dist in enumerate(reversed(st.session_state.intervalos_rosas[-10:])):
-            st.markdown(f"Rosa {len(st.session_state.intervalos_rosas)-i}: **{dist} rondas de espera**")
+            st.markdown(f"Rosa {len(st.session_state.intervalos_rosas)-i}: **{dist} rondas**")
     else:
-        st.write("Esperando primera rosa...")
+        st.info("Esperando primera rosa...")
 
     if st.button("🔄 REINICIAR TODO"):
         for k in list(st.session_state.keys()): del st.session_state[k]
         st.rerun()
 
 # --- INTERFAZ PRINCIPAL ---
-st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.9.0</div>', unsafe_allow_html=True)
+st.markdown('<div class="main-header">🦅 AVIATOR ELITE ROBOT v9.9.1</div>', unsafe_allow_html=True)
 
 # Dashboard
 c1, c2, c3, c4 = st.columns(4)
@@ -146,5 +149,5 @@ if st.button("🔙 DESHACER"):
         if last_val >= 10.0 and st.session_state.intervalos_rosas:
             st.session_state.rondas_desde_ultima = st.session_state.intervalos_rosas.pop()
         else:
-            st.session_state.rondas_desde_ultima -= 1
+            st.session_state.rondas_desde_ultima = max(0, st.session_state.rondas_desde_ultima - 1)
         st.rerun()
